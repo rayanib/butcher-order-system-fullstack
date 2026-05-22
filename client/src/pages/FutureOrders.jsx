@@ -20,6 +20,72 @@ function getFutureDayLabel(dayKey) {
   return parsed.format("dddd DD/MM/YYYY");
 }
 
+const prepPanelStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "10px",
+  padding: 0,
+  marginBottom: "10px",
+  background: "transparent",
+  border: 0,
+  boxShadow: "none",
+};
+
+const prepItemBaseStyle = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: 0,
+  minHeight: "54px",
+  padding: "5px 8px",
+  borderRadius: "14px",
+  textAlign: "center",
+};
+
+const prepItemStyles = {
+  kebab: {
+    ...prepItemBaseStyle,
+    background: "#ffe7ea",
+    color: "#8d2b45",
+    border: "1px solid #f2c0cb",
+  },
+  grill: {
+    ...prepItemBaseStyle,
+    background: "#fff1dd",
+    color: "#8a4f08",
+    border: "1px solid #f0d0a2",
+  },
+  shawarma: {
+    ...prepItemBaseStyle,
+    background: "#e7f1ff",
+    color: "#1f4d8f",
+    border: "1px solid #bfd8ff",
+  },
+};
+
+const prepLabelStyle = {
+  fontSize: "12px",
+  fontWeight: 900,
+  lineHeight: 1.1,
+  whiteSpace: "nowrap",
+};
+
+const prepValueStyle = {
+  fontSize: "23px",
+  fontWeight: 900,
+  lineHeight: 1,
+  whiteSpace: "nowrap",
+};
+
+const prepUnitStyle = {
+  fontSize: "10px",
+  fontWeight: 900,
+  lineHeight: 1.1,
+  opacity: 0.82,
+  whiteSpace: "nowrap",
+};
+
 export default function FutureOrders() {
   const { futureOrders, removeFutureOrder, markDone } = useOrders();
   const [selectedDayKey, setSelectedDayKey] = useState("");
@@ -81,7 +147,9 @@ export default function FutureOrders() {
         dayKey,
         dayLabel: getFutureDayLabel(dayKey),
         entries: entries.sort((a, b) =>
-          String(a.order.pickupTime || "").localeCompare(String(b.order.pickupTime || ""))
+          String(a.order.pickupTime || "").localeCompare(
+            String(b.order.pickupTime || "")
+          )
         ),
       }))
       .sort((a, b) => a.dayKey.localeCompare(b.dayKey));
@@ -110,31 +178,28 @@ export default function FutureOrders() {
 
   return (
     <div className="page orders-page">
-      <div className="future-prep-mini-panel card" aria-label="Future prep totals">
-        <div className="future-prep-mini-item future-prep-mini-kebab">
-          <span className="future-prep-mini-label">كباب</span>
-          <span className="future-prep-mini-value">
-            {formatKg(futurePrepTotals.kebab)}
-          </span>
-          <span className="future-prep-mini-unit">كغم</span>
+      <div className="future-prep-mini-panel" style={prepPanelStyle}>
+        <div className="future-prep-mini-item" style={prepItemStyles.kebab}>
+          <span style={prepLabelStyle}>كباب</span>
+          <span style={prepValueStyle}>{formatKg(futurePrepTotals.kebab)}</span>
+          <span style={prepUnitStyle}>كغم</span>
         </div>
 
-        <div className="future-prep-mini-item future-prep-mini-grill">
-          <span className="future-prep-mini-label">شوي</span>
-          <span className="future-prep-mini-value">
-            {formatKg(futurePrepTotals.grill)}
-          </span>
-          <span className="future-prep-mini-unit">كغم</span>
+        <div className="future-prep-mini-item" style={prepItemStyles.grill}>
+          <span style={prepLabelStyle}>شوي</span>
+          <span style={prepValueStyle}>{formatKg(futurePrepTotals.grill)}</span>
+          <span style={prepUnitStyle}>كغم</span>
         </div>
 
-        <div className="future-prep-mini-item future-prep-mini-shawarma">
-          <span className="future-prep-mini-label">شاورما</span>
-          <span className="future-prep-mini-value">
+        <div className="future-prep-mini-item" style={prepItemStyles.shawarma}>
+          <span style={prepLabelStyle}>شاورما</span>
+          <span style={prepValueStyle}>
             {formatKg(futurePrepTotals.shawarma)}
           </span>
-          <span className="future-prep-mini-unit">كغم</span>
+          <span style={prepUnitStyle}>كغم</span>
         </div>
       </div>
+
       <h1>الطلبيات المستقبلية</h1>
 
       {groupedOrders.length === 0 ? (
@@ -166,20 +231,20 @@ export default function FutureOrders() {
           </div>
 
           {selectedGroup && (
-              <section className="card future-day-card">
-                <div className="orders-grid tablet-grid">
-                  {selectedGroup.entries.map(({ order, index }) => (
-                    <OrderCard
-                      key={`${selectedGroup.dayKey}-${index}`}
-                      order={order}
-                      index={index}
-                      source="future"
-                      onDone={() => markDone("future", index)}
-                      onDelete={() => removeFutureOrder(index)}
-                    />
-                  ))}
-                </div>
-              </section>
+            <section className="card future-day-card">
+              <div className="orders-grid tablet-grid">
+                {selectedGroup.entries.map(({ order, index }) => (
+                  <OrderCard
+                    key={`${selectedGroup.dayKey}-${index}`}
+                    order={order}
+                    index={index}
+                    source="future"
+                    onDone={() => markDone("future", index)}
+                    onDelete={() => removeFutureOrder(index)}
+                  />
+                ))}
+              </div>
+            </section>
           )}
         </div>
       )}
