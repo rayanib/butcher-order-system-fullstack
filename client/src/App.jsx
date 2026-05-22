@@ -18,13 +18,18 @@ export default function App() {
     { to: "/lamb", label: "لية" },
     { to: "/prices", label: "الأسعار" },
     { to: "/history", label: "السجل" },
-    { to: "/archives", label: "الأرشيف" },
   ];
 
   return (
     <div className="app-shell" dir="rtl">
       <header className="topbar">
+        <NavLink to="/archives" className="topbar-archive-btn">
+          الأرشيف
+        </NavLink>
+
         <div className="topbar-title">نظام طلبات الملحمة</div>
+
+        <div className="topbar-spacer" />
       </header>
 
       <main className="content">

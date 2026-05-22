@@ -1,6 +1,17 @@
 import { useNavigate } from "react-router-dom";
 import { useOrders } from "../context/OrdersContext";
 
+function getStatusMeta(status) {
+  const map = {
+    waiting: { label: "بانتظار", className: "status-waiting" },
+    preparing: { label: "قيد التحضير", className: "status-preparing" },
+    ready: { label: "جاهز", className: "status-ready" },
+    future: { label: "مجدول", className: "status-future" },
+  };
+
+  return map[status] || map.waiting;
+}
+
 export default function OrderCard({
   order,
   index,
@@ -9,10 +20,13 @@ export default function OrderCard({
   onDelete,
 }) {
   const navigate = useNavigate();
-  const { toggleOrderItemDone } = useOrders();
+  const { toggleOrderItemDone, cycleOrderStatus } = useOrders();
+  const isFuture = source === "future" || order.isFuture;
+  const status = isFuture ? "future" : order.status || "waiting";
+  const statusMeta = getStatusMeta(status);
 
   return (
-    <div className="card order-card compact-card">
+    <div className={`card order-card compact-card ${statusMeta.className}`}>
       <div className="order-top-row">
         <div>
           <div className="order-customer">{order.customerName}</div>
@@ -20,6 +34,11 @@ export default function OrderCard({
         </div>
 
         <div className="order-top-badges">
+          {!isFuture ? (
+            <span className={`order-status-badge ${statusMeta.className}`}>
+              {statusMeta.label}
+            </span>
+          ) : null}
           <span className="soft-badge">{order.serviceType}</span>
           <span className="soft-badge total-badge">₪ {order.total || 0}</span>
         </div>
@@ -35,25 +54,22 @@ export default function OrderCard({
             key={i}
             className="order-item-line"
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "10px",
               color: item.done ? "#15803d" : "inherit",
               fontWeight: item.done ? "700" : "400",
             }}
           >
-            <span>
-              {item.done ? "✅ " : "• "}
-              {item.name} — {item.summary}
-            </span>
+            <div className="order-item-copy">
+              <span>
+                {item.done ? "✓ " : "• "}
+                {item.name} — {item.summary}
+              </span>
+              {item.note ? <div className="basket-item-meta">{item.note}</div> : null}
+            </div>
 
             <button
               type="button"
-              className="ghost-btn"
+              className="ghost-btn item-done-btn"
               style={{
-                padding: "6px 10px",
-                minWidth: "72px",
                 borderColor: item.done ? "#16a34a" : undefined,
                 color: item.done ? "#16a34a" : undefined,
               }}
@@ -66,6 +82,16 @@ export default function OrderCard({
       </div>
 
       <div className="order-actions">
+        {!isFuture ? (
+          <button
+            className={`ghost-btn order-status-btn ${statusMeta.className}`}
+            type="button"
+            onClick={() => cycleOrderStatus(source, index)}
+          >
+            {statusMeta.label}
+          </button>
+        ) : null}
+
         <button className="ghost-btn" type="button" onClick={onDone}>
           تم
         </button>

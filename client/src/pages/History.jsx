@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useOrders } from "../context/OrdersContext";
 
@@ -19,9 +19,7 @@ function Modal({ title, children, onClose }) {
 }
 
 function getItemLineTotal(item, prices) {
-  if (item.mode === "money") {
-    return Number(item.money) || 0;
-  }
+  if (item.mode === "money") return Number(item.money) || 0;
 
   if (item.mode === "kg") {
     const kg = Number(item.kg || 0);
@@ -35,7 +33,6 @@ function getItemLineTotal(item, prices) {
 
 export default function History() {
   const navigate = useNavigate();
-
   const {
     history,
     unpaidHistoryOrders,
@@ -51,14 +48,27 @@ export default function History() {
   const [showDebtModal, setShowDebtModal] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const totalHistoryRevenue = history.reduce(
     (sum, order) => sum + Number(order.total || 0),
     0
   );
 
+  const filteredHistory = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return history;
+
+    return history.filter((order) => {
+      return (
+        (order.customerName || "").toLowerCase().includes(query) ||
+        (order.phone || "").toLowerCase().includes(query)
+      );
+    });
+  }, [history, searchQuery]);
+
   return (
-    <div className="page">
+    <div className="page history-page">
       <div className="history-top-row">
         <div className="history-title-actions">
           <h1>السجل</h1>
@@ -90,7 +100,7 @@ export default function History() {
           onClick={() => setShowDebtModal(true)}
           title="الزبائن الذين لم يدفعوا"
         >
-          <span style={{ fontSize: "28px" }}>🔔</span>
+          <span style={{ fontSize: "24px" }}>🔔</span>
           {unpaidCount > 0 && (
             <span className="debt-bell-badge">
               {unpaidCount > 9 ? "9+" : unpaidCount}
@@ -99,19 +109,32 @@ export default function History() {
         </button>
       </div>
 
+      <div className="card history-search-card">
+        <div className="form-block" style={{ marginBottom: 0 }}>
+          <label>البحث في السجل</label>
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="ابحث بالاسم أو رقم الهاتف"
+          />
+        </div>
+      </div>
+
       {history.length === 0 ? (
         <div className="card empty-state">لا يوجد سجل اليوم</div>
+      ) : filteredHistory.length === 0 ? (
+        <div className="card empty-state">لا توجد نتائج مطابقة</div>
       ) : (
         <>
           <div className="orders-grid">
-            {history.map((order, index) => (
+            {filteredHistory.map((order, index) => (
               <div
-                key={index}
+                key={`${order.customerName}-${order.pickupTime}-${index}`}
                 className={`card order-card ${
                   order.paymentStatus === "unpaid" ? "history-unpaid-card" : ""
                 }`}
               >
-                <div className="order-card-top">
+                <div className="order-top-row">
                   <div>
                     <div className="order-customer">{order.customerName}</div>
                     <div className="order-phone">{order.phone || "بدون رقم"}</div>
@@ -128,7 +151,7 @@ export default function History() {
                   </span>
                 </div>
 
-                <div className="order-time-row">
+                <div className="order-meta-row">
                   <span className="time-badge">{order.pickupTime}</span>
                 </div>
 
@@ -138,9 +161,12 @@ export default function History() {
 
                     return (
                       <div key={i} className="order-item-line">
-                        <span>
-                          {item.name} — {item.summary}
-                        </span>
+                        <div className="order-item-copy">
+                          <span>
+                            {item.name} — {item.summary}
+                          </span>
+                          {item.note ? <div className="basket-item-meta">{item.note}</div> : null}
+                        </div>
                         <strong>{lineTotal} ₪</strong>
                       </div>
                     );
@@ -156,7 +182,7 @@ export default function History() {
                     <button
                       type="button"
                       className="ghost-btn"
-                      onClick={() => markOrderAsPaid("history", index)}
+                      onClick={() => markOrderAsPaid("history", history.indexOf(order))}
                     >
                       تم الدفع
                     </button>
@@ -164,7 +190,7 @@ export default function History() {
                     <button
                       type="button"
                       className="danger-icon-btn"
-                      onClick={() => markOrderAsUnpaid("history", index)}
+                      onClick={() => markOrderAsUnpaid("history", history.indexOf(order))}
                     >
                       عليه دين
                     </button>
@@ -173,7 +199,7 @@ export default function History() {
                   <button
                     type="button"
                     className="ghost-btn"
-                    onClick={() => removeHistory(index)}
+                    onClick={() => removeHistory(history.indexOf(order))}
                   >
                     حذف
                   </button>
@@ -182,19 +208,14 @@ export default function History() {
             ))}
           </div>
 
-          <div className="card" style={{ marginTop: "18px" }}>
-            <div className="history-order-total">
-              مجموع اليوم: {totalHistoryRevenue} ₪
-            </div>
+          <div className="card history-total-card">
+            <div className="history-order-total">مجموع اليوم: {totalHistoryRevenue} ₪</div>
           </div>
         </>
       )}
 
       {showDebtModal && (
-        <Modal
-          title="الزبائن الذين لم يدفعوا"
-          onClose={() => setShowDebtModal(false)}
-        >
+        <Modal title="الزبائن الذين لم يدفعوا" onClose={() => setShowDebtModal(false)}>
           <div className="modal-body">
             {unpaidHistoryOrders.length === 0 ? (
               <div className="empty-soft">لا يوجد زبائن عليهم دين</div>
@@ -203,9 +224,7 @@ export default function History() {
                 <div key={index} className="basket-item-card">
                   <div className="basket-item-top">
                     <div>
-                      <div className="basket-item-name">
-                        {order.customerName}
-                      </div>
+                      <div className="basket-item-name">{order.customerName}</div>
                       <div className="basket-item-meta">
                         {order.phone || "بدون رقم"} • {order.pickupTime}
                       </div>
@@ -225,10 +244,7 @@ export default function History() {
       )}
 
       {showClearConfirm && (
-        <Modal
-          title="تأكيد مسح السجل"
-          onClose={() => setShowClearConfirm(false)}
-        >
+        <Modal title="تأكيد مسح السجل" onClose={() => setShowClearConfirm(false)}>
           <div className="modal-body">
             <div className="empty-soft" style={{ minHeight: "120px" }}>
               هل تريد مسح كل الزبائن من السجل؟
@@ -259,10 +275,7 @@ export default function History() {
       )}
 
       {showArchiveConfirm && (
-        <Modal
-          title="أرشفة اليوم"
-          onClose={() => setShowArchiveConfirm(false)}
-        >
+        <Modal title="أرشفة اليوم" onClose={() => setShowArchiveConfirm(false)}>
           <div className="modal-body">
             <div className="empty-soft" style={{ minHeight: "120px" }}>
               هل تريد حفظ سجل اليوم في الأرشيف ثم الانتقال إلى صفحة الأرشيف؟
@@ -276,9 +289,7 @@ export default function History() {
                   const ok = archiveToday();
                   setShowArchiveConfirm(false);
 
-                  if (ok) {
-                    navigate("/archives");
-                  }
+                  if (ok) navigate("/archives");
                 }}
               >
                 نعم

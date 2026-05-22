@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+
+import {
+  isSupabaseConfigured,
+  loadRemoteAppState,
+  saveRemoteAppState,
+} from "../lib/supabase";
 
 const OrdersContext = createContext(null);
 
@@ -7,10 +13,31 @@ const STORAGE_KEYS = {
   futureOrders: "butcher_future_orders",
   history: "butcher_history",
   liahOrders: "butcher_liah_orders",
+  customerProfiles: "butcher_customer_profiles",
   customerNames: "butcher_customer_names",
   prices: "butcher_prices",
   dailyArchives: "butcher_daily_archives",
 };
+
+function hashText(value = "") {
+  return value.split("").reduce((acc, char) => {
+    return (acc * 31 + char.charCodeAt(0)) % 100000;
+  }, 7);
+}
+
+function buildCustomerCode(name = "", phone = "") {
+  const normalizedPhone = String(phone || "").replace(/\D/g, "");
+  if (normalizedPhone) {
+    const phoneHash = String(hashText(normalizedPhone)).padStart(5, "0");
+    return `C-${phoneHash.slice(-5)}`;
+  }
+
+  const normalizedName = String(name || "").trim().toLowerCase();
+  if (!normalizedName) return "C-00000";
+
+  const nameHash = String(hashText(normalizedName)).padStart(5, "0");
+  return `C-${nameHash.slice(-5)}`;
+}
 
 function loadFromStorage(key, fallback) {
   try {
@@ -77,6 +104,9 @@ export function OrdersProvider({ children }) {
   const [dailyArchives, setDailyArchives] = useState(() =>
     loadFromStorage(STORAGE_KEYS.dailyArchives, [])
   );
+  const [storedCustomerProfiles, setStoredCustomerProfiles] = useState(() =>
+    loadFromStorage(STORAGE_KEYS.customerProfiles, [])
+  );
   const [customerNames, setCustomerNames] = useState(() =>
     loadFromStorage(STORAGE_KEYS.customerNames, [
       "ريان",
@@ -92,6 +122,10 @@ export function OrdersProvider({ children }) {
   const [prices, setPrices] = useState(() =>
     loadFromStorage(STORAGE_KEYS.prices, {})
   );
+  const [syncStatus, setSyncStatus] = useState(
+    isSupabaseConfigured ? "connecting" : "local"
+  );
+  const hasLoadedRemoteRef = useRef(false);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(orders));
@@ -121,6 +155,13 @@ export function OrdersProvider({ children }) {
 
   useEffect(() => {
     localStorage.setItem(
+      STORAGE_KEYS.customerProfiles,
+      JSON.stringify(storedCustomerProfiles)
+    );
+  }, [storedCustomerProfiles]);
+
+  useEffect(() => {
+    localStorage.setItem(
       STORAGE_KEYS.customerNames,
       JSON.stringify(customerNames)
     );
@@ -129,6 +170,92 @@ export function OrdersProvider({ children }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.prices, JSON.stringify(prices));
   }, [prices]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function hydrateFromSupabase() {
+      if (!isSupabaseConfigured) {
+        hasLoadedRemoteRef.current = true;
+        setSyncStatus("local");
+        return;
+      }
+
+      setSyncStatus("loading");
+      const remoteState = await loadRemoteAppState();
+
+      if (isCancelled) return;
+
+      if (remoteState) {
+        setOrders(Array.isArray(remoteState.orders) ? remoteState.orders : []);
+        setFutureOrders(
+          Array.isArray(remoteState.futureOrders) ? remoteState.futureOrders : []
+        );
+        setHistory(Array.isArray(remoteState.history) ? remoteState.history : []);
+        setLiahOrders(
+          Array.isArray(remoteState.liahOrders) ? remoteState.liahOrders : []
+        );
+        setDailyArchives(
+          Array.isArray(remoteState.dailyArchives) ? remoteState.dailyArchives : []
+        );
+        setStoredCustomerProfiles(
+          Array.isArray(remoteState.customerProfiles)
+            ? remoteState.customerProfiles
+            : []
+        );
+        setCustomerNames(
+          Array.isArray(remoteState.customerNames) &&
+            remoteState.customerNames.length > 0
+            ? remoteState.customerNames
+            : customerNames
+        );
+        setPrices(
+          remoteState.prices && typeof remoteState.prices === "object"
+            ? remoteState.prices
+            : {}
+        );
+      }
+
+      hasLoadedRemoteRef.current = true;
+      setSyncStatus(remoteState ? "cloud" : "local");
+    }
+
+    hydrateFromSupabase();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !hasLoadedRemoteRef.current) return;
+
+    const timeoutId = setTimeout(async () => {
+      setSyncStatus("syncing");
+      const ok = await saveRemoteAppState({
+        orders,
+        futureOrders,
+        history,
+        liahOrders,
+        customerProfiles: storedCustomerProfiles,
+        customerNames,
+        prices,
+        dailyArchives,
+      });
+      setSyncStatus(ok ? "cloud" : "error");
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    orders,
+    futureOrders,
+    history,
+    liahOrders,
+    storedCustomerProfiles,
+    customerNames,
+    prices,
+    dailyArchives,
+  ]);
 
   function rememberCustomer(name) {
     const trimmed = (name || "").trim();
@@ -143,19 +270,76 @@ export function OrdersProvider({ children }) {
     });
   }
 
-  function normalizePaymentStatus(order) {
+  function rememberCustomerProfile(name, phone, customerCode) {
+    const customerName = (name || "").trim();
+    const customerPhone = (phone || "").trim();
+
+    if (!customerName && !customerPhone) return;
+
+    const nextCode =
+      (customerCode || "").trim() || buildCustomerCode(customerName, customerPhone);
+
+    rememberCustomer(customerName);
+
+    setStoredCustomerProfiles((prev) => {
+      const nextEntry = {
+        customerCode: nextCode,
+        customerName,
+        phone: customerPhone,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const matchIndex = prev.findIndex((entry) => {
+        const samePhone =
+          customerPhone && (entry.phone || "").trim() === customerPhone;
+        const sameCode =
+          nextCode && (entry.customerCode || "").trim() === nextCode;
+        const sameName =
+          customerName &&
+          (entry.customerName || "").trim().toLowerCase() ===
+            customerName.toLowerCase();
+
+        return samePhone || sameCode || sameName;
+      });
+
+      if (matchIndex === -1) {
+        return [nextEntry, ...prev];
+      }
+
+      return prev.map((entry, index) =>
+        index === matchIndex
+          ? {
+              ...entry,
+              ...nextEntry,
+              customerName: customerName || entry.customerName || "",
+              phone: customerPhone || entry.phone || "",
+            }
+          : entry
+      );
+    });
+  }
+
+  function normalizeOrder(order) {
     return {
       ...order,
       paymentStatus: order.paymentStatus || "paid",
+      status: order.status || (order.isFuture ? "future" : "waiting"),
+      customerCode:
+        order.customerCode ||
+        buildCustomerCode(order.customerName, order.phone),
     };
   }
 
   function addOrder(order) {
-    const normalizedOrder = normalizePaymentStatus(order);
+    const normalizedOrder = normalizeOrder(order);
     const total = calcOrderTotal(normalizedOrder.items, prices);
     const finalOrder = { ...normalizedOrder, total };
 
-    rememberCustomer(finalOrder.customerName);
+    rememberCustomerProfile(
+      finalOrder.customerName,
+      finalOrder.phone,
+      finalOrder.customerCode
+    );
 
     if (finalOrder.isFuture) {
       setFutureOrders((prev) => [finalOrder, ...prev]);
@@ -165,11 +349,15 @@ export function OrdersProvider({ children }) {
   }
 
   function updateOrder(source, index, order) {
-    const normalizedOrder = normalizePaymentStatus(order);
+    const normalizedOrder = normalizeOrder(order);
     const total = calcOrderTotal(normalizedOrder.items, prices);
     const finalOrder = { ...normalizedOrder, total };
 
-    rememberCustomer(finalOrder.customerName);
+    rememberCustomerProfile(
+      finalOrder.customerName,
+      finalOrder.phone,
+      finalOrder.customerCode
+    );
 
     if (source === "future") {
       setFutureOrders((prev) =>
@@ -197,7 +385,7 @@ export function OrdersProvider({ children }) {
 
       setHistory((prev) => [
         {
-          ...normalizePaymentStatus(item),
+          ...normalizeOrder(item),
           doneAt: new Date().toISOString(),
         },
         ...prev,
@@ -211,7 +399,7 @@ export function OrdersProvider({ children }) {
 
     setHistory((prev) => [
       {
-        ...normalizePaymentStatus(item),
+        ...normalizeOrder(item),
         doneAt: new Date().toISOString(),
       },
       ...prev,
@@ -270,7 +458,7 @@ export function OrdersProvider({ children }) {
   }
 
   function addLiahOrder(order) {
-    rememberCustomer(order.customerName);
+    rememberCustomerProfile(order.customerName, order.phone, order.customerCode);
     setLiahOrders((prev) => [order, ...prev]);
   }
 
@@ -346,6 +534,47 @@ export function OrdersProvider({ children }) {
   function markOrderAsPaid(source, index) {
     updateOrderPaymentStatus(source, index, "paid");
   }
+
+  function updateOrderStatus(source, index, status) {
+    const updateBySource = {
+      orders: setOrders,
+      future: setFutureOrders,
+      history: setHistory,
+      done: setHistory,
+    };
+
+    const setter = updateBySource[source];
+    if (!setter) return;
+
+    setter((prev) =>
+      prev.map((order, i) =>
+        i === index ? { ...order, status } : order
+      )
+    );
+  }
+
+  function cycleOrderStatus(source, index) {
+    const currentBySource = {
+      orders,
+      future: futureOrders,
+      history,
+      done: history,
+    };
+
+    const order = currentBySource[source]?.[index];
+    if (!order) return;
+
+    if (source === "future" || order.isFuture) {
+      updateOrderStatus(source, index, "future");
+      return;
+    }
+
+    const flow = ["waiting", "preparing", "ready"];
+    const currentIndex = flow.indexOf(order.status || "waiting");
+    const nextStatus = flow[(currentIndex + 1) % flow.length];
+    updateOrderStatus(source, index, nextStatus);
+  }
+
 function toggleOrderItemDone(source, orderIndex, itemIndex) {
   const updateBySource = {
     orders: setOrders,
@@ -388,6 +617,65 @@ function toggleOrderItemDone(source, orderIndex, itemIndex) {
     (order) => (order.paymentStatus || "paid") === "unpaid"
   );
 
+  const customerProfiles = useMemo(() => {
+    const allOrders = [...orders, ...futureOrders, ...history];
+    const fromOrders = allOrders.reduce((acc, order) => {
+      const customerName = (order.customerName || "").trim();
+      const phone = (order.phone || "").trim();
+      if (!customerName && !phone) return acc;
+
+      const customerCode =
+        order.customerCode || buildCustomerCode(customerName, phone);
+      const key = phone || customerCode || customerName.toLowerCase();
+      const existing = acc.get(key);
+
+      const nextProfile = {
+        customerCode,
+        customerName,
+        phone,
+        lastOrder: order,
+      };
+
+      if (
+        !existing ||
+        getOrderTimestamp(order) > getOrderTimestamp(existing.lastOrder)
+      ) {
+        acc.set(key, nextProfile);
+      }
+
+      return acc;
+    }, new Map());
+
+    return storedCustomerProfiles.reduce((acc, profile) => {
+      const customerName = (profile.customerName || "").trim();
+      const phone = (profile.phone || "").trim();
+      if (!customerName && !phone) return acc;
+
+      const customerCode =
+        (profile.customerCode || "").trim() ||
+        buildCustomerCode(customerName, phone);
+      const key = phone || customerCode || customerName.toLowerCase();
+      const existing = acc.get(key);
+      const profileTimestamp =
+        profile.updatedAt || profile.createdAt || profile.pickupTime || "";
+
+      if (
+        !existing ||
+        profileTimestamp > getOrderTimestamp(existing.lastOrder || existing)
+      ) {
+        acc.set(key, {
+          customerCode,
+          customerName,
+          phone,
+          lastOrder: existing?.lastOrder || null,
+          updatedAt: profileTimestamp,
+        });
+      }
+
+      return acc;
+    }, fromOrders);
+  }, [orders, futureOrders, history, storedCustomerProfiles]);
+
   const unpaidCount = unpaidHistoryOrders.length;
 
   const value = useMemo(
@@ -398,7 +686,10 @@ function toggleOrderItemDone(source, orderIndex, itemIndex) {
       liahOrders,
       dailyArchives,
       customerNames,
+      customerProfiles,
       prices,
+      syncStatus,
+      isCloudSyncEnabled: isSupabaseConfigured,
       unpaidHistoryOrders,
       unpaidCount,
       addOrder,
@@ -415,9 +706,12 @@ function toggleOrderItemDone(source, orderIndex, itemIndex) {
       removeLiahOrder,
       savePrices,
       rememberCustomer,
+      rememberCustomerProfile,
       updateOrderPaymentStatus,
       markOrderAsUnpaid,
       markOrderAsPaid,
+      updateOrderStatus,
+      cycleOrderStatus,
       toggleOrderItemDone,
       calcOrderTotal: (items) => calcOrderTotal(items, prices),
     }),
@@ -428,7 +722,9 @@ function toggleOrderItemDone(source, orderIndex, itemIndex) {
       liahOrders,
       dailyArchives,
       customerNames,
+      customerProfiles,
       prices,
+      syncStatus,
       unpaidHistoryOrders,
       unpaidCount,
     ]
@@ -445,4 +741,13 @@ export function useOrders() {
     throw new Error("useOrders must be used inside OrdersProvider");
   }
   return ctx;
+}
+
+function getOrderTimestamp(order) {
+  return (
+    order?.createdAt ||
+    order?.doneAt ||
+    order?.pickupTime ||
+    ""
+  );
 }

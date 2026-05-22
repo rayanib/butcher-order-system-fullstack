@@ -40,7 +40,7 @@ function buildPrintableHtml(archive, prices) {
 
           return `
             <div class="item-row">
-              <span>${item.name} — ${item.summary}</span>
+              <span>${item.name} — ${item.summary}${item.note ? `<br><small>${item.note}</small>` : ""}</span>
               <strong>${lineTotal} ₪</strong>
             </div>
           `;
@@ -324,9 +324,12 @@ export default function Archives() {
 
                         return (
                           <div key={i} className="order-item-line">
-                            <span>
-                              {item.name} — {item.summary}
-                            </span>
+                            <div>
+                              <span>
+                                {item.name} — {item.summary}
+                              </span>
+                              {item.note ? <div className="basket-item-meta">{item.note}</div> : null}
+                            </div>
                             <strong>{lineTotal} ₪</strong>
                           </div>
                         );

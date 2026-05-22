@@ -7,6 +7,8 @@ export default function LambOrders() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [kg, setKg] = useState(5);
+  const [redMeatKg, setRedMeatKg] = useState(0);
+  const [redMeatType, setRedMeatType] = useState("خشن");
 
   function saveLiah() {
     if (!name.trim()) {
@@ -18,11 +20,15 @@ export default function LambOrders() {
       customerName: name.trim(),
       phone: phone.trim(),
       kg,
+      redMeatKg,
+      redMeatType,
     });
 
     setName("");
     setPhone("");
     setKg(5);
+    setRedMeatKg(0);
+    setRedMeatType("خشن");
   }
 
   return (
@@ -56,6 +62,38 @@ export default function LambOrders() {
             </div>
           </div>
 
+          <div className="form-block">
+            <label>كمية لحم الاحمر</label>
+            <div className="counter-row">
+              <button
+                type="button"
+                onClick={() => setRedMeatKg((v) => Math.max(0, v - 1))}
+              >
+                -
+              </button>
+              <div className="counter-value">{redMeatKg} كغم</div>
+              <button type="button" onClick={() => setRedMeatKg((v) => v + 1)}>
+                +
+              </button>
+            </div>
+          </div>
+
+          <div className="form-block">
+            <label>نوع لحم الاحمر</label>
+            <div className="segmented">
+              {["خشن", "ناعم", "صيخ"].map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={redMeatType === option ? "active" : ""}
+                  onClick={() => setRedMeatType(option)}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button className="save-order-btn" type="button" onClick={saveLiah}>
             حفظ طلب اللية
           </button>
@@ -74,6 +112,9 @@ export default function LambOrders() {
                     <div className="basket-item-name">{item.customerName}</div>
                     <div className="basket-item-meta">
                       {item.kg} كغم لية • {item.phone || "بدون هاتف"}
+                    </div>
+                    <div className="basket-item-meta">
+                      {item.redMeatKg || 0} كغم لحم الاحمر • {item.redMeatType || "خشن"}
                     </div>
                   </div>
 
