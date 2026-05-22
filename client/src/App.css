@@ -100,6 +100,10 @@ font-weight:800;
 margin-bottom:10px;
 }
 
+.orders-page{
+position:relative;
+}
+
 .prep-summary-card{
 padding:16px 18px 18px;
 margin-bottom:16px;
@@ -212,6 +216,64 @@ margin:14px 0 10px;
 color:#5f536b;
 font-size:15px;
 font-weight:800;
+}
+
+.future-prep-mini-panel{
+position:absolute;
+left:18px;
+top:0;
+display:grid;
+grid-template-columns:repeat(2,minmax(92px,1fr));
+gap:8px;
+padding:8px;
+border-radius:18px;
+background:#fffdf8;
+box-shadow:0 10px 24px rgba(73,45,107,0.1);
+z-index:2;
+}
+
+.future-prep-mini-item{
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+min-width:92px;
+min-height:74px;
+padding:8px 10px;
+border-radius:14px;
+text-align:center;
+}
+
+.future-prep-mini-grill{
+background:#fff1dd;
+color:#8a4f08;
+border:1px solid #f0d0a2;
+}
+
+.future-prep-mini-shawarma{
+background:#e7f1ff;
+color:#1f4d8f;
+border:1px solid #bfd8ff;
+}
+
+.future-prep-mini-label{
+font-size:13px;
+font-weight:900;
+white-space:nowrap;
+}
+
+.future-prep-mini-value{
+font-size:28px;
+font-weight:900;
+line-height:1;
+white-space:nowrap;
+}
+
+.future-prep-mini-unit{
+font-size:11px;
+font-weight:900;
+opacity:0.82;
+white-space:nowrap;
 }
 
 .card{
@@ -1127,6 +1189,16 @@ font-size:38px;
 
 .prep-chip-value{
 font-size:20px;
+}
+
+.future-prep-mini-panel{
+position:static;
+grid-template-columns:repeat(2,minmax(0,1fr));
+margin-bottom:12px;
+}
+
+.future-prep-mini-item{
+min-width:0;
 }
 
 .quick-add-grid{

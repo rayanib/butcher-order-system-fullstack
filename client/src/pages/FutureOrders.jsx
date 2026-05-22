@@ -2,6 +2,7 @@ import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { useOrders } from "../context/OrdersContext";
 import OrderCard from "../components/OrderCard";
+import { calculateFuturePrepTotals, formatKg } from "../data/prepSummary";
 
 function getFutureDayKey(order) {
   const raw = (order.pickupTime || "").trim();
@@ -99,10 +100,33 @@ export default function FutureOrders() {
   }, [groupedOrders, selectedDayKey]);
 
   const selectedGroup =
-    groupedOrders.find((group) => group.dayKey === selectedDayKey) || groupedOrders[0];
+    groupedOrders.find((group) => group.dayKey === selectedDayKey) ||
+    groupedOrders[0];
+
+  const futurePrepTotals = useMemo(
+    () => calculateFuturePrepTotals(futureOrders),
+    [futureOrders]
+  );
 
   return (
     <div className="page orders-page">
+      <div className="future-prep-mini-panel card" aria-label="Future prep totals">
+        <div className="future-prep-mini-item future-prep-mini-grill">
+          <span className="future-prep-mini-label">شوي</span>
+          <span className="future-prep-mini-value">
+            {formatKg(futurePrepTotals.grill)}
+          </span>
+          <span className="future-prep-mini-unit">كغم</span>
+        </div>
+
+        <div className="future-prep-mini-item future-prep-mini-shawarma">
+          <span className="future-prep-mini-label">شاورما</span>
+          <span className="future-prep-mini-value">
+            {formatKg(futurePrepTotals.shawarma)}
+          </span>
+          <span className="future-prep-mini-unit">كغم</span>
+        </div>
+      </div>
       <h1>الطلبيات المستقبلية</h1>
 
       {groupedOrders.length === 0 ? (
