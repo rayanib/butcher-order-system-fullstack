@@ -111,6 +111,14 @@ export default function FutureOrders() {
   return (
     <div className="page orders-page">
       <div className="future-prep-mini-panel card" aria-label="Future prep totals">
+        <div className="future-prep-mini-item future-prep-mini-kebab">
+          <span className="future-prep-mini-label">كباب</span>
+          <span className="future-prep-mini-value">
+            {formatKg(futurePrepTotals.kebab)}
+          </span>
+          <span className="future-prep-mini-unit">كغم</span>
+        </div>
+
         <div className="future-prep-mini-item future-prep-mini-grill">
           <span className="future-prep-mini-label">شوي</span>
           <span className="future-prep-mini-value">

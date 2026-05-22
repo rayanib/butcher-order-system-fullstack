@@ -28,6 +28,11 @@ export function calculateFuturePrepTotals(orders = []) {
           return;
         }
 
+        if (itemName === "كباب") {
+          totals.kebab += kgValue;
+          return;
+        }
+
         if (isGrillItem(itemName)) {
           totals.grill += kgValue;
         }
@@ -35,6 +40,6 @@ export function calculateFuturePrepTotals(orders = []) {
 
       return totals;
     },
-    { grill: 0, shawarma: 0 }
+    { kebab: 0, grill: 0, shawarma: 0 }
   );
 }

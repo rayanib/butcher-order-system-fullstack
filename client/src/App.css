@@ -219,16 +219,15 @@ font-weight:800;
 }
 
 .future-prep-mini-panel{
-position:absolute;
-left:18px;
-top:0;
 display:grid;
-grid-template-columns:repeat(2,minmax(92px,1fr));
-gap:8px;
-padding:8px;
-border-radius:18px;
+grid-template-columns:repeat(3,minmax(0,1fr));
+gap:10px;
+padding:0;
+margin-bottom:10px;
+border:0;
+border-radius:0;
 background:#fffdf8;
-box-shadow:0 10px 24px rgba(73,45,107,0.1);
+box-shadow:none;
 z-index:2;
 }
 
@@ -237,11 +236,17 @@ display:flex;
 flex-direction:column;
 align-items:center;
 justify-content:center;
-min-width:92px;
-min-height:74px;
-padding:8px 10px;
-border-radius:14px;
+min-width:0;
+min-height:58px;
+padding:6px 10px;
+border-radius:16px;
 text-align:center;
+}
+
+.future-prep-mini-kebab{
+background:#ffe7ea;
+color:#8d2b45;
+border:1px solid #f2c0cb;
 }
 
 .future-prep-mini-grill{
@@ -257,20 +262,20 @@ border:1px solid #bfd8ff;
 }
 
 .future-prep-mini-label{
-font-size:13px;
+font-size:12px;
 font-weight:900;
 white-space:nowrap;
 }
 
 .future-prep-mini-value{
-font-size:28px;
+font-size:24px;
 font-weight:900;
 line-height:1;
 white-space:nowrap;
 }
 
 .future-prep-mini-unit{
-font-size:11px;
+font-size:10px;
 font-weight:900;
 opacity:0.82;
 white-space:nowrap;
@@ -1192,8 +1197,7 @@ font-size:20px;
 }
 
 .future-prep-mini-panel{
-position:static;
-grid-template-columns:repeat(2,minmax(0,1fr));
+grid-template-columns:repeat(3,minmax(0,1fr));
 margin-bottom:12px;
 }
 
