@@ -19,6 +19,9 @@ const STORAGE_KEYS = {
   dailyArchives: "butcher_daily_archives",
 };
 
+const DATA_RETENTION_DAYS = 7;
+const DATA_RETENTION_MS = DATA_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
 function hashText(value = "") {
   return value.split("").reduce((acc, char) => {
     return (acc * 31 + char.charCodeAt(0)) % 100000;
@@ -51,6 +54,59 @@ function loadFromStorage(key, fallback) {
 
 function hasRemoteValue(remoteState, key) {
   return remoteState[key] !== undefined && remoteState[key] !== null;
+}
+
+function parseTimestamp(value) {
+  if (!value) return null;
+  const parsed = Date.parse(String(value).replace(" ", "T"));
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function isRecentTimestamp(value, now = Date.now()) {
+  const timestamp = parseTimestamp(value);
+  if (!timestamp) return true;
+  return now - timestamp < DATA_RETENTION_MS;
+}
+
+function isRecentOrder(order, now = Date.now()) {
+  const timestamps = [order?.doneAt, order?.createdAt, order?.pickupTime]
+    .map(parseTimestamp)
+    .filter(Boolean);
+
+  if (timestamps.length === 0) return true;
+  return timestamps.some((timestamp) => now - timestamp < DATA_RETENTION_MS);
+}
+
+function isRecentArchive(archive, now = Date.now()) {
+  return isRecentTimestamp(archive?.date || archive?.createdAt, now);
+}
+
+function isRecentCustomerProfile(profile, now = Date.now()) {
+  return isRecentTimestamp(
+    profile?.updatedAt || profile?.createdAt || profile?.pickupTime,
+    now
+  );
+}
+
+function applyRetention(state, now = Date.now()) {
+  return {
+    orders: (state.orders || []).filter((order) => isRecentOrder(order, now)),
+    futureOrders: (state.futureOrders || []).filter((order) =>
+      isRecentOrder(order, now)
+    ),
+    history: (state.history || []).filter((order) => isRecentOrder(order, now)),
+    liahOrders: (state.liahOrders || []).filter((order) =>
+      isRecentOrder(order, now)
+    ),
+    customerProfiles: (state.customerProfiles || []).filter((profile) =>
+      isRecentCustomerProfile(profile, now)
+    ),
+    customerNames: state.customerNames || [],
+    prices: state.prices || {},
+    dailyArchives: (state.dailyArchives || [])
+      .filter((archive) => isRecentArchive(archive, now))
+      .slice(0, DATA_RETENTION_DAYS),
+  };
 }
 
 function calcOrderTotal(items, prices) {
@@ -131,6 +187,30 @@ export function OrdersProvider({ children }) {
   );
   const hasLoadedRemoteRef = useRef(false);
 
+  function getCurrentAppState() {
+    return {
+      orders,
+      futureOrders,
+      history,
+      liahOrders,
+      customerProfiles: storedCustomerProfiles,
+      customerNames,
+      prices,
+      dailyArchives,
+    };
+  }
+
+  function applyAppState(nextState) {
+    setOrders(nextState.orders);
+    setFutureOrders(nextState.futureOrders);
+    setHistory(nextState.history);
+    setLiahOrders(nextState.liahOrders);
+    setStoredCustomerProfiles(nextState.customerProfiles);
+    setCustomerNames(nextState.customerNames);
+    setPrices(nextState.prices);
+    setDailyArchives(nextState.dailyArchives);
+  }
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(orders));
   }, [orders]);
@@ -180,6 +260,7 @@ export function OrdersProvider({ children }) {
 
     async function hydrateFromSupabase() {
       if (!isSupabaseConfigured) {
+        applyAppState(applyRetention(getCurrentAppState()));
         hasLoadedRemoteRef.current = true;
         setSyncStatus("local");
         return;
@@ -205,33 +286,37 @@ export function OrdersProvider({ children }) {
             !Array.isArray(remoteState.prices));
 
         if (hasUsableRemoteState) {
-          if (Array.isArray(remoteState.orders)) setOrders(remoteState.orders);
-          if (Array.isArray(remoteState.futureOrders)) {
-            setFutureOrders(remoteState.futureOrders);
-          }
-          if (Array.isArray(remoteState.history)) setHistory(remoteState.history);
-          if (Array.isArray(remoteState.liahOrders)) {
-            setLiahOrders(remoteState.liahOrders);
-          }
-          if (Array.isArray(remoteState.dailyArchives)) {
-            setDailyArchives(remoteState.dailyArchives);
-          }
-          if (Array.isArray(remoteState.customerProfiles)) {
-            setStoredCustomerProfiles(remoteState.customerProfiles);
-          }
-          if (
-            Array.isArray(remoteState.customerNames) &&
-            remoteState.customerNames.length > 0
-          ) {
-            setCustomerNames(remoteState.customerNames);
-          }
-          if (
-            hasRemoteValue(remoteState, "prices") &&
-            typeof remoteState.prices === "object" &&
-            !Array.isArray(remoteState.prices)
-          ) {
-            setPrices(remoteState.prices);
-          }
+          const retainedRemoteState = applyRetention({
+            orders: Array.isArray(remoteState.orders) ? remoteState.orders : orders,
+            futureOrders: Array.isArray(remoteState.futureOrders)
+              ? remoteState.futureOrders
+              : futureOrders,
+            history: Array.isArray(remoteState.history)
+              ? remoteState.history
+              : history,
+            liahOrders: Array.isArray(remoteState.liahOrders)
+              ? remoteState.liahOrders
+              : liahOrders,
+            dailyArchives: Array.isArray(remoteState.dailyArchives)
+              ? remoteState.dailyArchives
+              : dailyArchives,
+            customerProfiles: Array.isArray(remoteState.customerProfiles)
+              ? remoteState.customerProfiles
+              : storedCustomerProfiles,
+            customerNames:
+              Array.isArray(remoteState.customerNames) &&
+              remoteState.customerNames.length > 0
+                ? remoteState.customerNames
+                : customerNames,
+            prices:
+              hasRemoteValue(remoteState, "prices") &&
+              typeof remoteState.prices === "object" &&
+              !Array.isArray(remoteState.prices)
+                ? remoteState.prices
+                : prices,
+          });
+
+          applyAppState(retainedRemoteState);
 
           hasLoadedRemoteRef.current = true;
           setSyncStatus("cloud");
@@ -240,16 +325,9 @@ export function OrdersProvider({ children }) {
 
         hasLoadedRemoteRef.current = true;
         setSyncStatus("syncing");
-        const seeded = await saveRemoteAppState({
-          orders,
-          futureOrders,
-          history,
-          liahOrders,
-          customerProfiles: storedCustomerProfiles,
-          customerNames,
-          prices,
-          dailyArchives,
-        });
+        const retainedLocalState = applyRetention(getCurrentAppState());
+        applyAppState(retainedLocalState);
+        const seeded = await saveRemoteAppState(retainedLocalState);
 
         if (isCancelled) return;
 
@@ -273,16 +351,7 @@ export function OrdersProvider({ children }) {
 
     const timeoutId = setTimeout(async () => {
       setSyncStatus("syncing");
-      const ok = await saveRemoteAppState({
-        orders,
-        futureOrders,
-        history,
-        liahOrders,
-        customerProfiles: storedCustomerProfiles,
-        customerNames,
-        prices,
-        dailyArchives,
-      });
+      const ok = await saveRemoteAppState(applyRetention(getCurrentAppState()));
       setSyncStatus(ok ? "cloud" : "error");
     }, 500);
 
