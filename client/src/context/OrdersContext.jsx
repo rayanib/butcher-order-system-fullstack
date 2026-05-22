@@ -49,6 +49,10 @@ function loadFromStorage(key, fallback) {
   }
 }
 
+function hasRemoteValue(remoteState, key) {
+  return remoteState[key] !== undefined && remoteState[key] !== null;
+}
+
 function calcOrderTotal(items, prices) {
   return items.reduce((sum, item) => {
     if (item.mode === "money") {
@@ -187,37 +191,74 @@ export function OrdersProvider({ children }) {
       if (isCancelled) return;
 
       if (remoteState) {
-        setOrders(Array.isArray(remoteState.orders) ? remoteState.orders : []);
-        setFutureOrders(
-          Array.isArray(remoteState.futureOrders) ? remoteState.futureOrders : []
-        );
-        setHistory(Array.isArray(remoteState.history) ? remoteState.history : []);
-        setLiahOrders(
-          Array.isArray(remoteState.liahOrders) ? remoteState.liahOrders : []
-        );
-        setDailyArchives(
-          Array.isArray(remoteState.dailyArchives) ? remoteState.dailyArchives : []
-        );
-        setStoredCustomerProfiles(
-          Array.isArray(remoteState.customerProfiles)
-            ? remoteState.customerProfiles
-            : []
-        );
-        setCustomerNames(
-          Array.isArray(remoteState.customerNames) &&
+        const hasUsableRemoteState =
+          Array.isArray(remoteState.orders) ||
+          Array.isArray(remoteState.futureOrders) ||
+          Array.isArray(remoteState.history) ||
+          Array.isArray(remoteState.liahOrders) ||
+          Array.isArray(remoteState.dailyArchives) ||
+          Array.isArray(remoteState.customerProfiles) ||
+          (Array.isArray(remoteState.customerNames) &&
+            remoteState.customerNames.length > 0) ||
+          (remoteState.prices &&
+            typeof remoteState.prices === "object" &&
+            !Array.isArray(remoteState.prices));
+
+        if (hasUsableRemoteState) {
+          if (Array.isArray(remoteState.orders)) setOrders(remoteState.orders);
+          if (Array.isArray(remoteState.futureOrders)) {
+            setFutureOrders(remoteState.futureOrders);
+          }
+          if (Array.isArray(remoteState.history)) setHistory(remoteState.history);
+          if (Array.isArray(remoteState.liahOrders)) {
+            setLiahOrders(remoteState.liahOrders);
+          }
+          if (Array.isArray(remoteState.dailyArchives)) {
+            setDailyArchives(remoteState.dailyArchives);
+          }
+          if (Array.isArray(remoteState.customerProfiles)) {
+            setStoredCustomerProfiles(remoteState.customerProfiles);
+          }
+          if (
+            Array.isArray(remoteState.customerNames) &&
             remoteState.customerNames.length > 0
-            ? remoteState.customerNames
-            : customerNames
-        );
-        setPrices(
-          remoteState.prices && typeof remoteState.prices === "object"
-            ? remoteState.prices
-            : {}
-        );
+          ) {
+            setCustomerNames(remoteState.customerNames);
+          }
+          if (
+            hasRemoteValue(remoteState, "prices") &&
+            typeof remoteState.prices === "object" &&
+            !Array.isArray(remoteState.prices)
+          ) {
+            setPrices(remoteState.prices);
+          }
+
+          hasLoadedRemoteRef.current = true;
+          setSyncStatus("cloud");
+          return;
+        }
+
+        hasLoadedRemoteRef.current = true;
+        setSyncStatus("syncing");
+        const seeded = await saveRemoteAppState({
+          orders,
+          futureOrders,
+          history,
+          liahOrders,
+          customerProfiles: storedCustomerProfiles,
+          customerNames,
+          prices,
+          dailyArchives,
+        });
+
+        if (isCancelled) return;
+
+        setSyncStatus(seeded ? "cloud" : "error");
+        return;
       }
 
       hasLoadedRemoteRef.current = true;
-      setSyncStatus(remoteState ? "cloud" : "local");
+      setSyncStatus("local");
     }
 
     hydrateFromSupabase();

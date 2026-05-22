@@ -38,8 +38,10 @@ export async function loadRemoteAppState() {
     return null;
   }
 
+  const rows = Array.isArray(data) ? data : [];
+
   return APP_STATE_KEYS.reduce((acc, key) => {
-    const match = data.find((row) => row.state_key === key);
+    const match = rows.find((row) => row.state_key === key);
     acc[key] = match?.payload;
     return acc;
   }, {});
