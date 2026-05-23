@@ -869,7 +869,7 @@ export default function NewOrder() {
         },
         ...prev,
       ]);
-      setEntryStep("time");
+      setEntryStep("items");
       return;
     }
 
@@ -892,7 +892,7 @@ export default function NewOrder() {
         },
         ...prev,
       ]);
-      setEntryStep("time");
+      setEntryStep("items");
       return;
     }
 
@@ -909,7 +909,7 @@ export default function NewOrder() {
       },
       ...prev,
     ]);
-    setEntryStep("time");
+    setEntryStep("items");
   }
 
   function duplicateBasketItem(index) {
@@ -1475,7 +1475,7 @@ export default function NewOrder() {
               }}
               onConfirm={(item) => {
                   setBasket((prev) => [...prev, item]);
-                  setEntryStep("time");
+                  setEntryStep("items");
                   setOpenModal(null);
                   setActiveProduct(null);
                 }}
@@ -1489,7 +1489,7 @@ export default function NewOrder() {
           }}
           onConfirm={(item) => {
             setBasket((prev) => [...prev, item]);
-            setEntryStep("time");
+            setEntryStep("items");
             setOpenModal(null);
             setActiveProduct(null);
           }}
