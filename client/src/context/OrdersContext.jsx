@@ -148,7 +148,7 @@ function formatArchiveDate(dateString) {
   }
 }
 
-export function OrdersProvider({ children }) {
+export function OrdersProvider({ children, user }) {
   const [orders, setOrders] = useState(() =>
     loadFromStorage(STORAGE_KEYS.orders, [])
   );
@@ -186,6 +186,7 @@ export function OrdersProvider({ children }) {
     isSupabaseConfigured ? "connecting" : "local"
   );
   const hasLoadedRemoteRef = useRef(false);
+  const supabaseUserId = user?.id || null;
 
   function getCurrentAppState() {
     return {
@@ -266,8 +267,13 @@ export function OrdersProvider({ children }) {
         return;
       }
 
+      if (!supabaseUserId) {
+        setSyncStatus("local");
+        return;
+      }
+
       setSyncStatus("loading");
-      const remoteState = await loadRemoteAppState();
+      const remoteState = await loadRemoteAppState(supabaseUserId);
 
       if (isCancelled) return;
 
@@ -327,7 +333,10 @@ export function OrdersProvider({ children }) {
         setSyncStatus("syncing");
         const retainedLocalState = applyRetention(getCurrentAppState());
         applyAppState(retainedLocalState);
-        const seeded = await saveRemoteAppState(retainedLocalState);
+        const seeded = await saveRemoteAppState(
+          retainedLocalState,
+          supabaseUserId
+        );
 
         if (isCancelled) return;
 
@@ -344,14 +353,23 @@ export function OrdersProvider({ children }) {
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [supabaseUserId]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !hasLoadedRemoteRef.current) return;
+    if (
+      !isSupabaseConfigured ||
+      !supabaseUserId ||
+      !hasLoadedRemoteRef.current
+    ) {
+      return;
+    }
 
     const timeoutId = setTimeout(async () => {
       setSyncStatus("syncing");
-      const ok = await saveRemoteAppState(applyRetention(getCurrentAppState()));
+      const ok = await saveRemoteAppState(
+        applyRetention(getCurrentAppState()),
+        supabaseUserId
+      );
       setSyncStatus(ok ? "cloud" : "error");
     }, 500);
 
@@ -365,6 +383,7 @@ export function OrdersProvider({ children }) {
     customerNames,
     prices,
     dailyArchives,
+    supabaseUserId,
   ]);
 
   function rememberCustomer(name) {
