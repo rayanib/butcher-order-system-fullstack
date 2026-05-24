@@ -43,3 +43,13 @@ export function calculateFuturePrepTotals(orders = []) {
     { kebab: 0, grill: 0, shawarma: 0 }
   );
 }
+
+export function calculatePrepTotalsByDay(groups = []) {
+  return groups.map((group) => ({
+    dayKey: group.dayKey,
+    dayLabel: group.dayLabel,
+    totals: calculateFuturePrepTotals(
+      (group.entries || []).map(({ order }) => order)
+    ),
+  }));
+}

@@ -42,6 +42,21 @@ function buildCustomerCode(name = "", phone = "") {
   return `C-${nameHash.slice(-5)}`;
 }
 
+function phonesMatchForSameCustomer(nextPhone = "", existingPhone = "") {
+  const nextDigits = String(nextPhone || "").replace(/\D/g, "");
+  const existingDigits = String(existingPhone || "").replace(/\D/g, "");
+
+  if (!nextDigits || !existingDigits) return false;
+  if (nextDigits === existingDigits) return true;
+
+  const shorter =
+    nextDigits.length <= existingDigits.length ? nextDigits : existingDigits;
+  const longer =
+    nextDigits.length > existingDigits.length ? nextDigits : existingDigits;
+
+  return shorter.length >= 3 && longer.endsWith(shorter);
+}
+
 function loadFromStorage(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -421,6 +436,12 @@ export function OrdersProvider({ children, user }) {
       const matchIndex = prev.findIndex((entry) => {
         const samePhone =
           customerPhone && (entry.phone || "").trim() === customerPhone;
+        const sameNameAndPhoneSuffix =
+          customerName &&
+          customerPhone &&
+          (entry.customerName || "").trim().toLowerCase() ===
+            customerName.toLowerCase() &&
+          phonesMatchForSameCustomer(customerPhone, entry.phone);
         const sameCode =
           nextCode && (entry.customerCode || "").trim() === nextCode;
         const sameName =
@@ -428,7 +449,7 @@ export function OrdersProvider({ children, user }) {
           (entry.customerName || "").trim().toLowerCase() ===
             customerName.toLowerCase();
 
-        return samePhone || sameCode || sameName;
+        return samePhone || sameNameAndPhoneSuffix || sameCode || sameName;
       });
 
       if (matchIndex === -1) {
@@ -441,7 +462,10 @@ export function OrdersProvider({ children, user }) {
               ...entry,
               ...nextEntry,
               customerName: customerName || entry.customerName || "",
-              phone: customerPhone || entry.phone || "",
+              phone:
+                customerPhone.length > (entry.phone || "").trim().length
+                  ? customerPhone
+                  : entry.phone || customerPhone || "",
             }
           : entry
       );

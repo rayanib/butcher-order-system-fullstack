@@ -800,32 +800,6 @@ export default function NewOrder() {
   }
 
   useEffect(() => {
-    const q = phone.trim();
-    if (q.length < 3 || customerName.trim()) return;
-
-    const exactMatches = customerProfileList.filter((entry) =>
-      (entry.phone || "").trim().endsWith(q)
-    );
-
-    if (exactMatches.length === 1) {
-      applyCustomerLookup(exactMatches[0]);
-    }
-  }, [phone, customerName, customerProfileList]);
-
-  useEffect(() => {
-    const q = customerName.trim().toLowerCase();
-    if (!q || phone.trim()) return;
-
-    const exactMatches = customerProfileList.filter(
-      (entry) => (entry.customerName || "").trim().toLowerCase() === q
-    );
-
-    if (exactMatches.length === 1) {
-      applyCustomerLookup(exactMatches[0]);
-    }
-  }, [customerName, phone, customerProfileList]);
-
-  useEffect(() => {
     if (entryStep !== "customer" && !hasCustomerIdentity) {
       setEntryStep("customer");
       return;

@@ -2,7 +2,11 @@ import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { useOrders } from "../context/OrdersContext";
 import OrderCard from "../components/OrderCard";
-import { calculateFuturePrepTotals, formatKg } from "../data/prepSummary";
+import {
+  calculateFuturePrepTotals,
+  calculatePrepTotalsByDay,
+  formatKg,
+} from "../data/prepSummary";
 
 function getFutureDayKey(order) {
   const raw = (order.pickupTime || "").trim();
@@ -84,6 +88,34 @@ const prepUnitStyle = {
   lineHeight: 1.1,
   opacity: 0.82,
   whiteSpace: "nowrap",
+};
+
+const dayPrepStripStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
+  margin: "0 0 10px",
+};
+
+const dayPrepBadgeStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "8px",
+  padding: "7px 10px",
+  borderRadius: "999px",
+  background: "#fff",
+  border: "1px solid #dfd2ea",
+  color: "#4f347e",
+  fontSize: "12px",
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+  boxShadow: "0 6px 14px rgba(73,45,107,0.06)",
+};
+
+const dayPrepNumberStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "3px",
 };
 
 export default function FutureOrders() {
@@ -176,6 +208,11 @@ export default function FutureOrders() {
     [futureOrders]
   );
 
+  const prepTotalsByDay = useMemo(
+    () => calculatePrepTotalsByDay(groupedOrders),
+    [groupedOrders]
+  );
+
   return (
     <div className="page orders-page">
       <div className="future-prep-mini-panel" style={prepPanelStyle}>
@@ -206,6 +243,20 @@ export default function FutureOrders() {
         <div className="card empty-state">لا توجد طلبيات مستقبلية</div>
       ) : (
         <div className="future-day-board">
+          <div className="future-day-prep-strip" style={dayPrepStripStyle}>
+            {prepTotalsByDay.map((day) => (
+              <div key={day.dayKey} style={dayPrepBadgeStyle}>
+                <span>{day.dayLabel}</span>
+                <span style={dayPrepNumberStyle}>
+                  شوي {formatKg(day.totals.grill)}
+                </span>
+                <span style={dayPrepNumberStyle}>
+                  شاورما {formatKg(day.totals.shawarma)}
+                </span>
+              </div>
+            ))}
+          </div>
+
           <div className="future-day-tabs" style={tabBarStyle}>
             {groupedOrders.map((group) => (
               <button
