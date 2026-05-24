@@ -70,6 +70,12 @@ export default function History() {
 
   return (
     <div className="page history-page">
+      <div className="card history-total-card history-total-card-top">
+        <div className="history-order-total">
+          {"\u0645\u062c\u0645\u0648\u0639 \u0627\u0644\u064a\u0648\u0645"}: {totalHistoryRevenue} {"\u20aa"}
+        </div>
+      </div>
+
       <div className="history-top-row">
         <div className="history-title-actions">
           <h1>السجل</h1>
@@ -213,9 +219,6 @@ export default function History() {
             ))}
           </div>
 
-          <div className="card history-total-card">
-            <div className="history-order-total">مجموع اليوم: {totalHistoryRevenue} ₪</div>
-          </div>
         </>
       )}
 

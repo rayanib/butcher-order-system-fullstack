@@ -1142,6 +1142,19 @@ margin-top:14px;
 padding:14px 16px;
 }
 
+.history-total-card-top{
+margin:0 0 14px;
+padding:8px 16px;
+border-radius:20px;
+box-shadow:0 8px 20px rgba(73,45,107,0.06);
+}
+
+.history-total-card-top .history-order-total{
+text-align:right;
+font-size:18px;
+color:#5b3f90;
+}
+
 .history-order-total{
 font-size:18px;
 font-weight:800;
