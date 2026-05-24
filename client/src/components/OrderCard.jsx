@@ -48,6 +48,10 @@ export default function OrderCard({
         <span className="time-badge">{order.pickupTime || "اليوم"}</span>
       </div>
 
+      {order.orderNote ? (
+        <div className="order-note-box">{order.orderNote}</div>
+      ) : null}
+
       <div className="order-items-list">
         {(order.items || []).map((item, i) => (
           <div

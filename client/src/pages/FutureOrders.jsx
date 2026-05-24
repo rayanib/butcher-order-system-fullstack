@@ -253,6 +253,9 @@ export default function FutureOrders() {
                 <span style={dayPrepNumberStyle}>
                   شاورما {formatKg(day.totals.shawarma)}
                 </span>
+                <span style={dayPrepNumberStyle}>
+                  كباب {formatKg(day.totals.kebab)}
+                </span>
               </div>
             ))}
           </div>

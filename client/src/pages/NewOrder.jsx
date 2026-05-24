@@ -610,6 +610,7 @@ export default function NewOrder() {
   const [serviceType, setServiceType] = useState("استلام");
   const [isFuture, setIsFuture] = useState(false);
   const [pickupTime, setPickupTime] = useState("");
+  const [orderNote, setOrderNote] = useState("");
   const [futureDateTime, setFutureDateTime] = useState(dayjs());
   const [selectedCategory, setSelectedCategory] = useState(
     Object.keys(PRODUCT_GROUPS)[0]
@@ -630,6 +631,7 @@ export default function NewOrder() {
     setCustomerCode(order.customerCode || "");
     setServiceType(order.serviceType || "استلام");
     setIsFuture(Boolean(order.isFuture));
+    setOrderNote(order.orderNote || "");
     setBasket(order.items || []);
     setSelectedQuickTime("");
     setEntryStep((order.items || []).length ? "time" : "items");
@@ -951,6 +953,7 @@ export default function NewOrder() {
       serviceType,
       isFuture,
       pickupTime: finalPickupTime,
+      orderNote: orderNote.trim(),
       items: basket,
       paymentStatus: isEdit
         ? editState?.order?.paymentStatus || "paid"
@@ -1192,6 +1195,16 @@ export default function NewOrder() {
                   ))
                 )}
               </div>
+            </div>
+
+            <div className="form-block order-note-block">
+              <label>{"\u0645\u0644\u0627\u062d\u0638\u0629 \u0639\u0644\u0649 \u0627\u0644\u0637\u0644\u0628"}</label>
+              <textarea
+                value={orderNote}
+                onChange={(event) => setOrderNote(event.target.value)}
+                rows={3}
+                placeholder={"\u0645\u062b\u0644\u0627\u064b: \u062e\u0628\u0632\u0629 \u0648\u0627\u062d\u062f\u0629\u060c \u0627\u0644\u0644\u062d\u0645 \u0645\u062e\u0644\u0648\u0637"}
+              />
             </div>
 
             <div className="customer-start-actions">

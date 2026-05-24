@@ -62,7 +62,8 @@ export default function History() {
     return history.filter((order) => {
       return (
         (order.customerName || "").toLowerCase().includes(query) ||
-        (order.phone || "").toLowerCase().includes(query)
+        (order.phone || "").toLowerCase().includes(query) ||
+        (order.orderNote || "").toLowerCase().includes(query)
       );
     });
   }, [history, searchQuery]);
@@ -154,6 +155,10 @@ export default function History() {
                 <div className="order-meta-row">
                   <span className="time-badge">{order.pickupTime}</span>
                 </div>
+
+                {order.orderNote ? (
+                  <div className="order-note-box">{order.orderNote}</div>
+                ) : null}
 
                 <div className="order-items-list">
                   {(order.items || []).map((item, i) => {

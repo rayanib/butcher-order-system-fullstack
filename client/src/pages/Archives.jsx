@@ -318,6 +318,10 @@ export default function Archives() {
                       {order.phone || "بدون رقم"} • {order.pickupTime}
                     </div>
 
+                    {order.orderNote ? (
+                      <div className="order-note-box">{order.orderNote}</div>
+                    ) : null}
+
                     <div className="order-items-list" style={{ marginTop: "10px" }}>
                       {(order.items || []).map((item, i) => {
                         const lineTotal = getItemLineTotal(item, prices);
