@@ -186,7 +186,6 @@ export default function OrderCard({
           <span className="urgency-symbol">!</span>
           <span>{urgency.label}</span>
           <strong>{urgency.detail}</strong>
-          <span>{urgency.progress}%</span>
         </div>
       ) : null}
 
