@@ -35,6 +35,7 @@ export default function History() {
   const navigate = useNavigate();
   const {
     history,
+    dailyArchives,
     unpaidHistoryOrders,
     unpaidCount,
     markOrderAsPaid,
@@ -75,6 +76,39 @@ export default function History() {
           {"\u0645\u062c\u0645\u0648\u0639 \u0627\u0644\u064a\u0648\u0645"}: {totalHistoryRevenue} {"\u20aa"}
         </div>
       </div>
+
+      {dailyArchives.length > 0 && (
+        <div
+          className="card"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "8px",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "10px 12px",
+            marginBottom: "12px",
+          }}
+        >
+          <strong style={{ fontSize: "13px" }}>
+            {"\u0623\u064a\u0627\u0645 \u0645\u062d\u0641\u0648\u0638\u0629"}
+          </strong>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+            {dailyArchives.slice(0, 4).map((archive) => (
+              <button
+                key={archive.id}
+                type="button"
+                className="soft-badge"
+                onClick={() => navigate("/archives")}
+                style={{ cursor: "pointer", border: 0 }}
+              >
+                {archive.displayDate || archive.date}: {archive.totalRevenue} {"\u20aa"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="history-top-row">
         <div className="history-title-actions">

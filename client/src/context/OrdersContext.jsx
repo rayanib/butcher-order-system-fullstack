@@ -21,6 +21,7 @@ const STORAGE_KEYS = {
 
 const DATA_RETENTION_DAYS = 7;
 const DATA_RETENTION_MS = DATA_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+const DAILY_ARCHIVE_LIMIT = 4;
 
 function hashText(value = "") {
   return value.split("").reduce((acc, char) => {
@@ -183,6 +184,81 @@ function getOrderIdentity(order) {
     order?.pickupTime || "",
     JSON.stringify(order?.items || []),
   ].join("|");
+}
+
+function getHistoryDayKey(order, fallbackDay = getDayKey()) {
+  const timestamp = order?.doneAt || order?.createdAt || order?.pickupTime;
+  if (!timestamp) return fallbackDay;
+
+  const parsed = new Date(String(timestamp).replace(" ", "T"));
+  if (Number.isNaN(parsed.getTime())) {
+    return String(timestamp).split(" ")[0] || fallbackDay;
+  }
+
+  return getDayKey(parsed);
+}
+
+function dedupeOrders(orders) {
+  const seen = new Set();
+
+  return (orders || []).filter((order) => {
+    const key = getOrderIdentity(order);
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function buildArchiveEntry(dayKey, orders) {
+  const archiveOrders = dedupeOrders(orders);
+  const totalRevenue = archiveOrders.reduce(
+    (sum, order) => sum + Number(order.total || 0),
+    0
+  );
+  const unpaidCountForDay = archiveOrders.filter(
+    (order) => (order.paymentStatus || "paid") === "unpaid"
+  ).length;
+
+  return {
+    id: `${dayKey}-${Date.now()}`,
+    date: dayKey,
+    displayDate: formatArchiveDate(dayKey),
+    createdAt: new Date().toISOString(),
+    orders: archiveOrders,
+    totalOrders: archiveOrders.length,
+    totalRevenue,
+    unpaidCount: unpaidCountForDay,
+  };
+}
+
+function mergeArchiveDays(existingArchives, archiveEntries) {
+  const archiveByDate = new Map();
+
+  (existingArchives || []).forEach((archive) => {
+    archiveByDate.set(archive.date, archive);
+  });
+
+  archiveEntries.forEach((archive) => {
+    const existing = archiveByDate.get(archive.date);
+
+    if (!existing) {
+      archiveByDate.set(archive.date, archive);
+      return;
+    }
+
+    archiveByDate.set(
+      archive.date,
+      buildArchiveEntry(archive.date, [
+        ...(existing.orders || []),
+        ...(archive.orders || []),
+      ])
+    );
+  });
+
+  return Array.from(archiveByDate.values())
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, DAILY_ARCHIVE_LIMIT);
 }
 
 function formatArchiveDate(dateString) {
@@ -466,6 +542,34 @@ export function OrdersProvider({ children, user }) {
     );
   }, [futureOrders]);
 
+  useEffect(() => {
+    const todayKey = getDayKey();
+    const olderHistory = history.filter(
+      (order) => getHistoryDayKey(order, todayKey) !== todayKey
+    );
+
+    if (olderHistory.length === 0) return;
+
+    const archiveGroups = olderHistory.reduce((groups, order) => {
+      const dayKey = getHistoryDayKey(order, todayKey);
+      if (!groups.has(dayKey)) {
+        groups.set(dayKey, []);
+      }
+
+      groups.get(dayKey).push(order);
+      return groups;
+    }, new Map());
+
+    const archiveEntries = Array.from(archiveGroups.entries()).map(
+      ([dayKey, ordersForDay]) => buildArchiveEntry(dayKey, ordersForDay)
+    );
+
+    setDailyArchives((prev) => mergeArchiveDays(prev, archiveEntries));
+    setHistory((prev) =>
+      prev.filter((order) => getHistoryDayKey(order, todayKey) === todayKey)
+    );
+  }, [history]);
+
   function rememberCustomer(name) {
     const trimmed = (name || "").trim();
     if (!trimmed) return;
@@ -656,30 +760,10 @@ export function OrdersProvider({ children, user }) {
     if (history.length === 0) return false;
 
     const archiveDate = getDayKey();
-    const totalRevenue = history.reduce(
-      (sum, order) => sum + Number(order.total || 0),
-      0
-    );
-    const unpaidCountForDay = history.filter(
-      (order) => (order.paymentStatus || "paid") === "unpaid"
-    ).length;
-
-    const archiveEntry = {
-      id: `${archiveDate}-${Date.now()}`,
-      date: archiveDate,
-      displayDate: formatArchiveDate(archiveDate),
-      createdAt: new Date().toISOString(),
-      orders: history,
-      totalOrders: history.length,
-      totalRevenue,
-      unpaidCount: unpaidCountForDay,
-    };
+    const archiveEntry = buildArchiveEntry(archiveDate, history);
 
     setDailyArchives((prev) => {
-      const withoutSameDay = prev.filter((day) => day.date !== archiveDate);
-      return [archiveEntry, ...withoutSameDay]
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .slice(0, 7);
+      return mergeArchiveDays(prev, [archiveEntry]);
     });
 
     setHistory([]);
