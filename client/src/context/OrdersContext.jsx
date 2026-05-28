@@ -150,6 +150,41 @@ function getDayKey(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function getOrderDayKey(order) {
+  const raw = (order?.pickupTime || "").trim();
+  if (!raw) return "";
+
+  const parsed = new Date(raw.replace(" ", "T"));
+  if (Number.isNaN(parsed.getTime())) {
+    return raw.split(" ")[0] || "";
+  }
+
+  return getDayKey(parsed);
+}
+
+function isFutureOrderDue(order, todayKey = getDayKey()) {
+  const dayKey = getOrderDayKey(order);
+  return Boolean(dayKey && dayKey <= todayKey);
+}
+
+function makeDueOrderActive(order) {
+  return {
+    ...order,
+    isFuture: false,
+    status: order.status && order.status !== "future" ? order.status : "waiting",
+  };
+}
+
+function getOrderIdentity(order) {
+  return [
+    order?.createdAt || "",
+    order?.customerName || "",
+    order?.phone || "",
+    order?.pickupTime || "",
+    JSON.stringify(order?.items || []),
+  ].join("|");
+}
+
 function formatArchiveDate(dateString) {
   try {
     const date = new Date(dateString);
@@ -201,6 +236,7 @@ export function OrdersProvider({ children, user }) {
     isSupabaseConfigured ? "connecting" : "local"
   );
   const hasLoadedRemoteRef = useRef(false);
+  const promotedFutureOrderKeysRef = useRef(new Set());
   const supabaseUserId = user?.id || null;
 
   function getCurrentAppState() {
@@ -401,6 +437,35 @@ export function OrdersProvider({ children, user }) {
     supabaseUserId,
   ]);
 
+  useEffect(() => {
+    const todayKey = getDayKey();
+    const dueFutureOrders = futureOrders.filter((order) =>
+      isFutureOrderDue(order, todayKey)
+    );
+
+    if (dueFutureOrders.length === 0) return;
+
+    const ordersToMove = dueFutureOrders.filter((order) => {
+      const key = getOrderIdentity(order);
+      return !promotedFutureOrderKeysRef.current.has(key);
+    });
+
+    ordersToMove.forEach((order) => {
+      promotedFutureOrderKeysRef.current.add(getOrderIdentity(order));
+    });
+
+    if (ordersToMove.length > 0) {
+      setOrders((prev) => [
+        ...ordersToMove.map(makeDueOrderActive),
+        ...prev,
+      ]);
+    }
+
+    setFutureOrders((prev) =>
+      prev.filter((order) => !isFutureOrderDue(order, todayKey))
+    );
+  }, [futureOrders]);
+
   function rememberCustomer(name) {
     const trimmed = (name || "").trim();
     if (!trimmed) return;
@@ -473,10 +538,16 @@ export function OrdersProvider({ children, user }) {
   }
 
   function normalizeOrder(order) {
+    const normalizedStatus = order.isFuture
+      ? "future"
+      : order.status && order.status !== "future"
+        ? order.status
+        : "waiting";
+
     return {
       ...order,
       paymentStatus: order.paymentStatus || "paid",
-      status: order.status || (order.isFuture ? "future" : "waiting"),
+      status: normalizedStatus,
       customerCode:
         order.customerCode ||
         buildCustomerCode(order.customerName, order.phone),
@@ -513,14 +584,27 @@ export function OrdersProvider({ children, user }) {
     );
 
     if (source === "future") {
-      setFutureOrders((prev) =>
-        prev.map((item, i) => (i === index ? finalOrder : item))
-      );
-    } else {
-      setOrders((prev) =>
-        prev.map((item, i) => (i === index ? finalOrder : item))
-      );
+      if (finalOrder.isFuture) {
+        setFutureOrders((prev) =>
+          prev.map((item, i) => (i === index ? finalOrder : item))
+        );
+        return;
+      }
+
+      setFutureOrders((prev) => prev.filter((_, i) => i !== index));
+      setOrders((prev) => [finalOrder, ...prev]);
+      return;
     }
+
+    if (finalOrder.isFuture) {
+      setOrders((prev) => prev.filter((_, i) => i !== index));
+      setFutureOrders((prev) => [finalOrder, ...prev]);
+      return;
+    }
+
+    setOrders((prev) =>
+      prev.map((item, i) => (i === index ? finalOrder : item))
+    );
   }
 
   function removeOrder(index) {

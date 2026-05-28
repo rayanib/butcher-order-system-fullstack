@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { StaticTimePicker } from "@mui/x-date-pickers/StaticTimePicker";
@@ -621,6 +621,7 @@ export default function NewOrder() {
   const [selectedQuickTime, setSelectedQuickTime] = useState("");
   const [showAdvancedTime, setShowAdvancedTime] = useState(false);
   const [entryStep, setEntryStep] = useState("customer");
+  const previousPhoneRef = useRef("");
 
   useEffect(() => {
   if (isEdit && editState?.order) {
@@ -628,6 +629,7 @@ export default function NewOrder() {
 
     setCustomerName(order.customerName || "");
     setPhone(order.phone || "");
+    previousPhoneRef.current = order.phone || "";
     setCustomerCode(order.customerCode || "");
     setServiceType(order.serviceType || "استلام");
     setIsFuture(Boolean(order.isFuture));
@@ -792,6 +794,34 @@ export default function NewOrder() {
     setCustomerName(entry.customerName || "");
     setPhone(entry.phone || "");
     setCustomerCode(entry.customerCode || "");
+    previousPhoneRef.current = entry.phone || "";
+  }
+
+  function handlePhoneChange(event) {
+    const nextPhone = event.target.value;
+    const previousPhone = previousPhoneRef.current;
+
+    previousPhoneRef.current = nextPhone;
+    setPhone(nextPhone);
+
+    const nextDigits = nextPhone.replace(/\D/g, "");
+    const previousDigits = previousPhone.replace(/\D/g, "");
+    const isDeleting = nextDigits.length < previousDigits.length;
+
+    if (isDeleting || nextDigits.length < 3) return;
+
+    const currentName = customerName.trim().toLowerCase();
+    const matches = customerProfileList.filter((entry) => {
+      const entryPhone = (entry.phone || "").replace(/\D/g, "");
+      const entryName = (entry.customerName || "").trim().toLowerCase();
+
+      if (!entryPhone.endsWith(nextDigits)) return false;
+      return !currentName || entryName === currentName;
+    });
+
+    if (matches.length === 1) {
+      applyCustomerLookup(matches[0]);
+    }
   }
 
   function moveToItemsStep() {
@@ -991,7 +1021,7 @@ export default function NewOrder() {
               type="tel"
               inputMode="numeric"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={handlePhoneChange}
               onKeyDown={(event) => {
                 if (event.key !== "Enter" || !hasCustomerIdentity) return;
                 event.preventDefault();
