@@ -6,9 +6,12 @@ import LambOrders from "./pages/LambOrders";
 import Prices from "./pages/Prices";
 import History from "./pages/History";
 import Archives from "./pages/Archives";
-import { useOrders } from "./context/OrdersContext";
+import PublicStatus from "./pages/PublicStatus";
+import ShopStatusAdmin from "./pages/ShopStatusAdmin";
+import AuthGate from "./components/AuthGate";
+import { OrdersProvider, useOrders } from "./context/OrdersContext";
 
-export default function App() {
+function ProtectedApp({ user }) {
   const { unpaidCount } = useOrders();
 
   const navItems = [
@@ -18,6 +21,7 @@ export default function App() {
     { to: "/lamb", label: "لية" },
     { to: "/prices", label: "الأسعار" },
     { to: "/history", label: "السجل" },
+    { to: "/shop-status", label: "Status" },
   ];
 
   return (
@@ -41,6 +45,7 @@ export default function App() {
           <Route path="/prices" element={<Prices />} />
           <Route path="/history" element={<History />} />
           <Route path="/archives" element={<Archives />} />
+          <Route path="/shop-status" element={<ShopStatusAdmin user={user} />} />
         </Routes>
       </main>
 
@@ -67,5 +72,25 @@ export default function App() {
         ))}
       </nav>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/status" element={<PublicStatus />} />
+      <Route
+        path="/*"
+        element={
+          <AuthGate>
+            {(user) => (
+              <OrdersProvider user={user}>
+                <ProtectedApp user={user} />
+              </OrdersProvider>
+            )}
+          </AuthGate>
+        }
+      />
+    </Routes>
   );
 }

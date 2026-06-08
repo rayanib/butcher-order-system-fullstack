@@ -19,10 +19,17 @@ alter table public.app_state add constraint app_state_user_state_key_key unique 
 alter table public.app_state enable row level security;
 
 drop policy if exists "Allow public app_state access" on public.app_state;
+drop policy if exists "Public can read shop status" on public.app_state;
 drop policy if exists "Users can read own app_state" on public.app_state;
 drop policy if exists "Users can insert own app_state" on public.app_state;
 drop policy if exists "Users can update own app_state" on public.app_state;
 drop policy if exists "Users can delete own app_state" on public.app_state;
+
+create policy "Public can read shop status"
+on public.app_state
+for select
+to anon, authenticated
+using (state_key = 'shopStatus');
 
 create policy "Users can read own app_state"
 on public.app_state

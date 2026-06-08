@@ -6,21 +6,13 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 
 import App from "./App";
 import "./index.css";
-import AuthGate from "./components/AuthGate";
-import { OrdersProvider } from "./context/OrdersContext";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <AuthGate>
-        {(user) => (
-          <HashRouter>
-            <OrdersProvider user={user}>
-              <App />
-            </OrdersProvider>
-          </HashRouter>
-        )}
-      </AuthGate>
+      <HashRouter>
+        <App />
+      </HashRouter>
     </LocalizationProvider>
   </React.StrictMode>
 );

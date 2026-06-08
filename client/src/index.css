@@ -607,6 +607,196 @@ a {
   padding: 6px 0;
 }
 
+.public-status-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: #f7f2fb;
+}
+
+.public-status-card {
+  width: min(560px, 100%);
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  padding: 34px 28px;
+  border: 1px solid #e3d7ee;
+  border-radius: 20px;
+  background: #fff;
+  color: #292134;
+  text-align: center;
+  box-shadow: 0 18px 48px rgba(73,45,107,0.14);
+}
+
+.public-status-kicker {
+  font-size: 16px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  opacity: 0.72;
+}
+
+.public-status-card h1 {
+  margin: 0;
+  font-size: 54px;
+  line-height: 1;
+}
+
+.public-status-message {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.public-status-updated {
+  font-size: 15px;
+  font-weight: 700;
+  opacity: 0.72;
+}
+
+.public-status-card.status-open {
+  border-color: #a9d6b4;
+  background: #effaf2;
+  color: #166534;
+}
+
+.public-status-card.status-closed {
+  border-color: #efb0b0;
+  background: #fff1f1;
+  color: #991b1b;
+}
+
+.public-status-card.status-no-meat {
+  border-color: #f0c48a;
+  background: #fff5e6;
+  color: #8a4f08;
+}
+
+.shop-status-admin-page {
+  direction: ltr;
+}
+
+.status-admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.status-admin-header h1 {
+  margin-bottom: 4px;
+}
+
+.status-admin-header p {
+  margin: 0;
+  color: #675c73;
+  font-weight: 700;
+}
+
+.status-admin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+}
+
+.status-option-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.status-choice {
+  min-height: 96px;
+  border-radius: 16px;
+  border: 2px solid transparent;
+  padding: 14px;
+  font-size: 20px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.status-choice.status-open {
+  background: #effaf2;
+  color: #166534;
+}
+
+.status-choice.status-closed {
+  background: #fff1f1;
+  color: #991b1b;
+}
+
+.status-choice.status-no-meat {
+  background: #fff5e6;
+  color: #8a4f08;
+}
+
+.status-choice.active {
+  border-color: currentColor;
+  box-shadow: 0 12px 28px rgba(73,45,107,0.12);
+}
+
+.status-message-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-weight: 900;
+}
+
+.status-message-field textarea {
+  width: 100%;
+  border: 1px solid #dacde9;
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-size: 20px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.status-quick-messages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-save-btn {
+  min-height: 58px;
+  font-size: 20px;
+}
+
+.status-save-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #675c73;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  .public-status-card h1 {
+    font-size: 42px;
+  }
+
+  .public-status-message {
+    font-size: 22px;
+  }
+
+  .status-option-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .status-admin-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .order-actions {
   display: flex;
   gap: 8px;
