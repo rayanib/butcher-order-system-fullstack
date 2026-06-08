@@ -43,16 +43,10 @@ npm.cmd run dev
 - The tablet only needs the web link after deployment. It does not need Node.js or the local server.
 - The app uses hash routes like `#/future`, which avoids static-host 404 errors when the tablet refreshes or restores a page.
 
-## Shop status page
-- The private admin page is `#/shop-status`.
-- The public customer page is `#/status`.
-- Run the latest `supabase/app_state.sql` once after deploying this feature. It adds one public-read policy only for `state_key = 'shopStatus'`.
-- Orders, customer phone numbers, prices, and archives stay private behind login.
-
 ## Notes
 - If the env values are missing, the app still works locally.
 - With Supabase configured, the app requires login before orders and customer memory sync through the `app_state` table.
-- The anon key is safe to use in the frontend because Row Level Security only allows each logged-in user to read and write their own rows, plus public read access to the single shop status message.
+- The anon key is safe to use in the frontend because Row Level Security only allows each logged-in user to read and write their own rows.
 - On first connection to an empty Supabase table, the app keeps your existing local data and uploads it as the first cloud copy.
 - The app keeps a rolling 7 days of order/archive/customer-memory data. Older data is removed locally and from Supabase the next time the app opens or syncs.
 - This uses a tiny number of rows and is designed to stay comfortable on the Supabase free plan for daily shop use.
