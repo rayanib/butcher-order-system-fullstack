@@ -94,6 +94,184 @@ function getOrderTimestamp(order) {
   );
 }
 
+function getSpeechRecognition() {
+  if (typeof window === "undefined") return null;
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function normalizeVoiceDigits(value = "") {
+  const arabicDigits = "٠١٢٣٤٥٦٧٨٩";
+  const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
+
+  return String(value)
+    .replace(/[٠-٩۰-۹]/g, (digit) => {
+      const arabicIndex = arabicDigits.indexOf(digit);
+      if (arabicIndex !== -1) return String(arabicIndex);
+
+      const persianIndex = persianDigits.indexOf(digit);
+      return persianIndex === -1 ? digit : String(persianIndex);
+    })
+    .replace(/[,،]/g, ".");
+}
+
+function parseArabicNumber(value = "") {
+  const normalized = normalizeVoiceDigits(value);
+  const digitMatch = normalized.match(/\d+(?:\.\d+)?/);
+  if (digitMatch) return Number(digitMatch[0]);
+
+  const wordNumbers = [
+    ["نص", 0.5],
+    ["نصف", 0.5],
+    ["واحد", 1],
+    ["وحده", 1],
+    ["واحدة", 1],
+    ["اثنين", 2],
+    ["اتنين", 2],
+    ["ثنين", 2],
+    ["ثلاث", 3],
+    ["ثلاثة", 3],
+    ["اربع", 4],
+    ["اربعة", 4],
+    ["خمس", 5],
+    ["خمسة", 5],
+    ["ست", 6],
+    ["ستة", 6],
+    ["سبع", 7],
+    ["سبعة", 7],
+    ["ثمان", 8],
+    ["ثمانية", 8],
+    ["تسع", 9],
+    ["تسعة", 9],
+    ["عشر", 10],
+    ["عشرة", 10],
+  ];
+
+  const match = wordNumbers.find(([word]) => normalized.includes(word));
+  return match ? match[1] : null;
+}
+
+function buildVoiceItem(name, kg, note = "") {
+  const safeKg = Number.isFinite(kg) && kg > 0 ? kg : 1;
+
+  return {
+    name,
+    priceKey: name,
+    mode: "kg",
+    kg: safeKg,
+    money: null,
+    note,
+    summary: `${safeKg.toFixed(1)} كغم`,
+    done: false,
+  };
+}
+
+function parseVoiceOrder(text = "") {
+  const normalized = normalizeVoiceDigits(text)
+    .replace(/\s+/g, " ")
+    .trim();
+  const lower = normalized.toLowerCase();
+  const digits = normalized.match(/\d{3,10}/g) || [];
+  const phone = digits[0] || "";
+  const beforePhone = phone ? normalized.split(phone)[0].trim() : normalized;
+  const ignoredNameWords = new Set([
+    "رقم",
+    "تلفون",
+    "هاتف",
+    "كيلو",
+    "كغم",
+    "كغ",
+    "بعد",
+    "نص",
+    "نصف",
+  ]);
+  const name =
+    beforePhone
+      .split(" ")
+      .map((word) => word.trim())
+      .filter((word) => word && !ignoredNameWords.has(word))[0] || "";
+
+  const kgMatch =
+    normalized.match(/(\d+(?:\.\d+)?)\s*(?:كيلو|كغم|كغ|kg)/i) ||
+    normalized.match(
+      /(نص|نصف|واحد|وحده|واحدة|اثنين|اتنين|ثنين|ثلاث|ثلاثة|اربع|اربعة|خمس|خمسة|ست|ستة|سبع|سبعة|ثمان|ثمانية|تسع|تسعة|عشر|عشرة)\s*(?:كيلو|كغم|كغ)/i
+    );
+  const kg = kgMatch ? parseArabicNumber(kgMatch[1]) : null;
+  const itemAliases = [
+    ["شاورما", "شاورما"],
+    ["شاورمه", "شاورما"],
+    ["شرايح", "شرحات"],
+    ["شرائح", "شرحات"],
+    ["شرحات", "شرحات"],
+    ["حوسي", "حوسي"],
+    ["ناعم", "لحمة ناعمة"],
+    ["ناعمة", "لحمة ناعمة"],
+    ["خشن", "لحمة خشن"],
+    ["كباب", "كباب"],
+    ["كبه", "كبة"],
+    ["كبة", "كبة"],
+    ["كفته", "صفايح / كفته"],
+    ["كفتة", "صفايح / كفته"],
+    ["صفايح", "صفايح / كفته"],
+    ["سلق", "سلق"],
+    ["غنم", "غنم"],
+    ["فيليه", "فيليه"],
+    ["سنتا", "سنتا"],
+    ["ستيك", "ستيك"],
+    ["شيش", "شيش"],
+  ];
+  const itemMatch = itemAliases.find(([alias]) => lower.includes(alias));
+  const itemName = itemMatch?.[1] || "";
+  const notes = [];
+
+  if (/بدون\s*(بهار|بهارات|تتبيل)/.test(lower)) {
+    notes.push("بدون بهار");
+  }
+
+  if (/مبهر|بهار/.test(lower) && notes.length === 0) {
+    notes.push("مبهر");
+  }
+
+  if (/مخلوط|خلط|مشكل/.test(lower)) {
+    notes.push("مخلوط");
+  }
+
+  if (/خبز|رغيف|ارغفة|أرغفة/.test(lower)) {
+    notes.push("خبز");
+  }
+
+  let pickupTime = "";
+  const minuteMatch =
+    normalized.match(/بعد\s*(\d+)\s*(?:دقيقه|دقيقة|دقايق|دقائق|د)/) ||
+    normalized.match(/بعد\s*(نص|نصف)\s*(?:ساعه|ساعة)/);
+  const hourMatch =
+    normalized.match(/بعد\s*(\d+)\s*(?:ساعه|ساعة|ساعات)/) ||
+    normalized.match(/بعد\s*(ساعتين|ساعتان)/);
+
+  if (minuteMatch) {
+    const minutes =
+      minuteMatch[1] === "نص" || minuteMatch[1] === "نصف"
+        ? 30
+        : Number(minuteMatch[1]);
+    pickupTime = `بعد ${minutes} دقيقة`;
+  } else if (hourMatch) {
+    const hours =
+      hourMatch[1] === "ساعتين" || hourMatch[1] === "ساعتان"
+        ? 2
+        : Number(hourMatch[1]) || 1;
+    pickupTime = hours === 1 ? "بعد ساعة" : `بعد ${hours} ساعات`;
+  } else if (/بعد\s*(نص|نصف)\s*(?:ساعه|ساعة)/.test(normalized)) {
+    pickupTime = "بعد 30 دقيقة";
+  }
+
+  return {
+    name,
+    phone,
+    item: itemName ? buildVoiceItem(itemName, kg || 1, notes.join("، ")) : null,
+    pickupTime,
+    orderNote: notes.length ? notes.join("، ") : "",
+  };
+}
+
 function NoteField({ note, onChange }) {
   return (
     <div className="money-input-wrap">
@@ -622,6 +800,11 @@ export default function NewOrder() {
   const [showAdvancedTime, setShowAdvancedTime] = useState(false);
   const [entryStep, setEntryStep] = useState("customer");
   const previousPhoneRef = useRef("");
+  const recognitionRef = useRef(null);
+  const shouldListenRef = useRef(false);
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const [voiceText, setVoiceText] = useState("");
+  const [voiceError, setVoiceError] = useState("");
 
   useEffect(() => {
   if (isEdit && editState?.order) {
@@ -648,6 +831,13 @@ export default function NewOrder() {
     }
   }
 }, [isEdit, editState]);
+
+  useEffect(() => {
+    return () => {
+      shouldListenRef.current = false;
+      recognitionRef.current?.stop?.();
+    };
+  }, []);
 
   const suggestions = useMemo(() => {
     const q = customerName.trim().toLowerCase();
@@ -797,6 +987,25 @@ export default function NewOrder() {
     previousPhoneRef.current = entry.phone || "";
   }
 
+  function applyPhoneCustomerMatch(nextPhone, nextName = "") {
+    const digits = nextPhone.replace(/\D/g, "");
+    if (digits.length < 3) return false;
+
+    const nameQuery = nextName.trim().toLowerCase();
+    const matches = customerProfileList.filter((entry) => {
+      const entryPhone = (entry.phone || "").replace(/\D/g, "");
+      const entryName = (entry.customerName || "").trim().toLowerCase();
+
+      if (!entryPhone.endsWith(digits)) return false;
+      return !nameQuery || entryName === nameQuery;
+    });
+
+    if (matches.length !== 1) return false;
+
+    applyCustomerLookup(matches[0]);
+    return true;
+  }
+
   function handlePhoneChange(event) {
     const nextPhone = event.target.value;
     const previousPhone = previousPhoneRef.current;
@@ -810,17 +1019,117 @@ export default function NewOrder() {
 
     if (isDeleting || nextDigits.length < 3) return;
 
-    const currentName = customerName.trim().toLowerCase();
-    const matches = customerProfileList.filter((entry) => {
-      const entryPhone = (entry.phone || "").replace(/\D/g, "");
-      const entryName = (entry.customerName || "").trim().toLowerCase();
+    applyPhoneCustomerMatch(nextDigits, customerName);
+  }
 
-      if (!entryPhone.endsWith(nextDigits)) return false;
-      return !currentName || entryName === currentName;
-    });
+  function startVoiceRecording() {
+    const SpeechRecognition = getSpeechRecognition();
 
-    if (matches.length === 1) {
-      applyCustomerLookup(matches[0]);
+    if (!SpeechRecognition) {
+      setVoiceError("التسجيل الصوتي غير مدعوم على هذا المتصفح. جرّب Chrome على التابلت.");
+      return;
+    }
+
+    setVoiceError("");
+    shouldListenRef.current = true;
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "ar";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event) => {
+      const finalParts = [];
+
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        if (event.results[i].isFinal) {
+          finalParts.push(event.results[i][0].transcript.trim());
+        }
+      }
+
+      if (finalParts.length > 0) {
+        setVoiceText((prev) => [prev, ...finalParts].filter(Boolean).join(" "));
+      }
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error === "no-speech") return;
+      setVoiceError(`مشكلة في التسجيل: ${event.error}`);
+    };
+
+    recognition.onend = () => {
+      if (!shouldListenRef.current) {
+        setIsVoiceListening(false);
+        return;
+      }
+
+      try {
+        recognition.start();
+      } catch {
+        setIsVoiceListening(false);
+      }
+    };
+
+    recognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+      setIsVoiceListening(true);
+    } catch {
+      setVoiceError("لم أستطع بدء التسجيل. جرّب إطفاءه وتشغيله مرة ثانية.");
+    }
+  }
+
+  function stopVoiceRecording() {
+    shouldListenRef.current = false;
+    recognitionRef.current?.stop?.();
+    setIsVoiceListening(false);
+  }
+
+  function resetVoiceDraft() {
+    stopVoiceRecording();
+    setVoiceText("");
+    setVoiceError("");
+  }
+
+  function applyVoiceDraft() {
+    const draft = parseVoiceOrder(voiceText);
+
+    if (draft.name && !customerName.trim()) {
+      setCustomerName(draft.name);
+    }
+
+    if (draft.phone) {
+      const matched = applyPhoneCustomerMatch(draft.phone, draft.name || customerName);
+
+      if (!matched) {
+        setPhone(draft.phone);
+        previousPhoneRef.current = draft.phone;
+      }
+    }
+
+    if (draft.item) {
+      setBasket((prev) => [...prev, draft.item]);
+      setEntryStep("items");
+    }
+
+    if (draft.pickupTime) {
+      setIsFuture(false);
+      setPickupTime(draft.pickupTime);
+      setSelectedQuickTime(draft.pickupTime);
+      if (draft.item) {
+        setEntryStep("time");
+      }
+    }
+
+    if (draft.orderNote) {
+      setOrderNote((prev) =>
+        prev.trim() ? `${prev.trim()}، ${draft.orderNote}` : draft.orderNote
+      );
+    }
+
+    if (!draft.item && (draft.name || draft.phone)) {
+      setEntryStep("items");
     }
   }
 
@@ -1004,6 +1313,53 @@ export default function NewOrder() {
 
   return (
     <>
+      <section className="voice-order-panel card">
+        <div className="voice-order-top">
+          <div>
+            <div className="new-order-kicker">{"\u0645\u0633\u0627\u0639\u062f \u0635\u0648\u062a\u064a"}</div>
+            <h2>{"\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u0637\u0644\u0628"}</h2>
+          </div>
+
+          <span className={`voice-live-badge ${isVoiceListening ? "active" : ""}`}>
+            {isVoiceListening ? "\u064a\u0633\u0645\u0639..." : "\u0645\u062a\u0648\u0642\u0641"}
+          </span>
+        </div>
+
+        <div className="voice-order-actions">
+          <button
+            type="button"
+            className={`primary-btn ${isVoiceListening ? "voice-stop-btn" : ""}`}
+            onClick={isVoiceListening ? stopVoiceRecording : startVoiceRecording}
+          >
+            {isVoiceListening ? "\u0625\u064a\u0642\u0627\u0641" : "\u062a\u0634\u063a\u064a\u0644"}
+          </button>
+
+          <button
+            type="button"
+            className="ghost-btn"
+            onClick={applyVoiceDraft}
+            disabled={!voiceText.trim()}
+          >
+            {"\u062a\u0637\u0628\u064a\u0642 \u0627\u0644\u0635\u0648\u062a"}
+          </button>
+
+          <button
+            type="button"
+            className="danger-icon-btn"
+            onClick={resetVoiceDraft}
+            disabled={!voiceText.trim() && !isVoiceListening}
+          >
+            {"\u0625\u0639\u0627\u062f\u0629"}
+          </button>
+        </div>
+
+        <div className="voice-order-text">
+          {voiceText.trim() || "\u0627\u0636\u063a\u0637 \u062a\u0634\u063a\u064a\u0644\u060c \u062a\u0643\u0644\u0645 \u0639\u0644\u0649 \u062f\u0641\u0639\u0627\u062a\u060c \u062b\u0645 \u0627\u0636\u063a\u0637 \u0625\u064a\u0642\u0627\u0641."}
+        </div>
+
+        {voiceError ? <div className="auth-error">{voiceError}</div> : null}
+      </section>
+
       {entryStep === "customer" && (
       <section className="customer-start-panel card">
         <div className="panel-title-row">
