@@ -272,6 +272,18 @@ function parseVoiceOrder(text = "") {
   };
 }
 
+function mergeVoiceTranscript(finalText = "", liveText = "") {
+  const finalClean = finalText.replace(/\s+/g, " ").trim();
+  const liveClean = liveText.replace(/\s+/g, " ").trim();
+
+  if (!liveClean) return finalClean;
+  if (!finalClean) return liveClean;
+  if (finalClean.includes(liveClean)) return finalClean;
+  if (liveClean.includes(finalClean)) return liveClean;
+
+  return `${finalClean} ${liveClean}`;
+}
+
 function NoteField({ note, onChange }) {
   return (
     <div className="money-input-wrap">
@@ -802,8 +814,12 @@ export default function NewOrder() {
   const previousPhoneRef = useRef("");
   const recognitionRef = useRef(null);
   const shouldListenRef = useRef(false);
+  const lastVoiceFinalRef = useRef("");
+  const lastVoiceLiveRef = useRef("");
+  const restartTimerRef = useRef(null);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [voiceText, setVoiceText] = useState("");
+  const [voiceLiveText, setVoiceLiveText] = useState("");
   const [voiceError, setVoiceError] = useState("");
 
   useEffect(() => {
@@ -835,6 +851,7 @@ export default function NewOrder() {
   useEffect(() => {
     return () => {
       shouldListenRef.current = false;
+      window.clearTimeout(restartTimerRef.current);
       recognitionRef.current?.stop?.();
     };
   }, []);
@@ -1031,24 +1048,37 @@ export default function NewOrder() {
     }
 
     setVoiceError("");
+    setVoiceLiveText("");
+    lastVoiceLiveRef.current = "";
     shouldListenRef.current = true;
 
     const recognition = new SpeechRecognition();
-    recognition.lang = "ar";
+    recognition.lang = "ar-IL";
     recognition.continuous = true;
     recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 
     recognition.onresult = (event) => {
       const finalParts = [];
+      let interimText = "";
 
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         if (event.results[i].isFinal) {
           finalParts.push(event.results[i][0].transcript.trim());
+        } else {
+          interimText = `${interimText} ${event.results[i][0].transcript.trim()}`.trim();
         }
       }
 
       if (finalParts.length > 0) {
-        setVoiceText((prev) => [prev, ...finalParts].filter(Boolean).join(" "));
+        const finalText = finalParts.join(" ").trim();
+        lastVoiceFinalRef.current = finalText;
+        setVoiceText((prev) => mergeVoiceTranscript(prev, finalText));
+        setVoiceLiveText("");
+        lastVoiceLiveRef.current = "";
+      } else if (interimText) {
+        setVoiceLiveText(interimText);
+        lastVoiceLiveRef.current = interimText;
       }
     };
 
@@ -1063,11 +1093,17 @@ export default function NewOrder() {
         return;
       }
 
-      try {
-        recognition.start();
-      } catch {
-        setIsVoiceListening(false);
-      }
+      window.clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = window.setTimeout(() => {
+        if (!shouldListenRef.current) return;
+
+        try {
+          recognition.start();
+          setIsVoiceListening(true);
+        } catch {
+          setIsVoiceListening(false);
+        }
+      }, 250);
     };
 
     recognitionRef.current = recognition;
@@ -1081,7 +1117,19 @@ export default function NewOrder() {
   }
 
   function stopVoiceRecording() {
+    const combinedText = mergeVoiceTranscript(
+      voiceText,
+      lastVoiceLiveRef.current || voiceLiveText
+    );
+
+    if (combinedText) {
+      setVoiceText(combinedText);
+    }
+
+    setVoiceLiveText("");
+    lastVoiceLiveRef.current = "";
     shouldListenRef.current = false;
+    window.clearTimeout(restartTimerRef.current);
     recognitionRef.current?.stop?.();
     setIsVoiceListening(false);
   }
@@ -1089,11 +1137,20 @@ export default function NewOrder() {
   function resetVoiceDraft() {
     stopVoiceRecording();
     setVoiceText("");
+    setVoiceLiveText("");
+    lastVoiceFinalRef.current = "";
+    lastVoiceLiveRef.current = "";
     setVoiceError("");
   }
 
   function applyVoiceDraft() {
-    const draft = parseVoiceOrder(voiceText);
+    const fullVoiceText = mergeVoiceTranscript(voiceText, voiceLiveText);
+    const draft = parseVoiceOrder(fullVoiceText);
+
+    if (fullVoiceText && fullVoiceText !== voiceText) {
+      setVoiceText(fullVoiceText);
+      setVoiceLiveText("");
+    }
 
     if (draft.name && !customerName.trim()) {
       setCustomerName(draft.name);
@@ -1338,7 +1395,7 @@ export default function NewOrder() {
             type="button"
             className="ghost-btn"
             onClick={applyVoiceDraft}
-            disabled={!voiceText.trim()}
+            disabled={!mergeVoiceTranscript(voiceText, voiceLiveText)}
           >
             {"\u062a\u0637\u0628\u064a\u0642 \u0627\u0644\u0635\u0648\u062a"}
           </button>
@@ -1347,15 +1404,23 @@ export default function NewOrder() {
             type="button"
             className="danger-icon-btn"
             onClick={resetVoiceDraft}
-            disabled={!voiceText.trim() && !isVoiceListening}
+            disabled={!voiceText.trim() && !voiceLiveText.trim() && !isVoiceListening}
           >
             {"\u0625\u0639\u0627\u062f\u0629"}
           </button>
         </div>
 
-        <div className="voice-order-text">
-          {voiceText.trim() || "\u0627\u0636\u063a\u0637 \u062a\u0634\u063a\u064a\u0644\u060c \u062a\u0643\u0644\u0645 \u0639\u0644\u0649 \u062f\u0641\u0639\u0627\u062a\u060c \u062b\u0645 \u0627\u0636\u063a\u0637 \u0625\u064a\u0642\u0627\u0641."}
-        </div>
+        <textarea
+          className="voice-order-text"
+          value={mergeVoiceTranscript(voiceText, voiceLiveText)}
+          onChange={(event) => {
+            setVoiceText(event.target.value);
+            setVoiceLiveText("");
+            lastVoiceLiveRef.current = "";
+          }}
+          rows={3}
+          placeholder={"\u0627\u0636\u063a\u0637 \u062a\u0634\u063a\u064a\u0644\u060c \u062a\u0643\u0644\u0645 \u0639\u0644\u0649 \u062f\u0641\u0639\u0627\u062a\u060c \u062b\u0645 \u0627\u0636\u063a\u0637 \u0625\u064a\u0642\u0627\u0641."}
+        />
 
         {voiceError ? <div className="auth-error">{voiceError}</div> : null}
       </section>

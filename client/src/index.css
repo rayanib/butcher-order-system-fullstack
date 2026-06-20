@@ -586,6 +586,7 @@ a {
 }
 
 .voice-order-text {
+  width: 100%;
   min-height: 44px;
   border: 1px dashed #d8c7ec;
   border-radius: 14px;
@@ -595,6 +596,9 @@ a {
   font-size: 14px;
   font-weight: 700;
   line-height: 1.6;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
 }
 
 .urgency-row {
