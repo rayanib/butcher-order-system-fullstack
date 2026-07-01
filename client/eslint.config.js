@@ -24,6 +24,10 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // These effects intentionally hydrate or reconcile persisted application state.
+      'react-hooks/set-state-in-effect': 'off',
+      // The context exports its provider and consumer hook from one cohesive module.
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])

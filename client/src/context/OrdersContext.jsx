@@ -480,6 +480,9 @@ export function OrdersProvider({ children, user }) {
     return () => {
       isCancelled = true;
     };
+  // Rehydrate only when the authenticated user changes. Adding state values
+  // here would overwrite in-progress edits after every local update.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabaseUserId]);
 
   useEffect(() => {
@@ -501,6 +504,9 @@ export function OrdersProvider({ children, user }) {
     }, 500);
 
     return () => clearTimeout(timeoutId);
+    // getCurrentAppState intentionally reads the state represented by the
+    // dependencies below; memoizing it would add no synchronization guarantee.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     orders,
     futureOrders,
@@ -999,57 +1005,42 @@ function toggleOrderItemDone(source, orderIndex, itemIndex) {
 
   const unpaidCount = unpaidHistoryOrders.length;
 
-  const value = useMemo(
-    () => ({
-      orders,
-      futureOrders,
-      history,
-      liahOrders,
-      dailyArchives,
-      customerNames,
-      customerProfiles,
-      prices,
-      syncStatus,
-      isCloudSyncEnabled: isSupabaseConfigured,
-      unpaidHistoryOrders,
-      unpaidCount,
-      addOrder,
-      updateOrder,
-      removeOrder,
-      removeFutureOrder,
-      markDone,
-      removeHistory,
-      clearHistory,
-      archiveToday,
-      removeArchive,
-      clearArchives,
-      addLiahOrder,
-      removeLiahOrder,
-      savePrices,
-      rememberCustomer,
-      rememberCustomerProfile,
-      updateOrderPaymentStatus,
-      markOrderAsUnpaid,
-      markOrderAsPaid,
-      updateOrderStatus,
-      cycleOrderStatus,
-      toggleOrderItemDone,
-      calcOrderTotal: (items) => calcOrderTotal(items, prices),
-    }),
-    [
-      orders,
-      futureOrders,
-      history,
-      liahOrders,
-      dailyArchives,
-      customerNames,
-      customerProfiles,
-      prices,
-      syncStatus,
-      unpaidHistoryOrders,
-      unpaidCount,
-    ]
-  );
+  const value = {
+    orders,
+    futureOrders,
+    history,
+    liahOrders,
+    dailyArchives,
+    customerNames,
+    customerProfiles,
+    prices,
+    syncStatus,
+    isCloudSyncEnabled: isSupabaseConfigured,
+    unpaidHistoryOrders,
+    unpaidCount,
+    addOrder,
+    updateOrder,
+    removeOrder,
+    removeFutureOrder,
+    markDone,
+    removeHistory,
+    clearHistory,
+    archiveToday,
+    removeArchive,
+    clearArchives,
+    addLiahOrder,
+    removeLiahOrder,
+    savePrices,
+    rememberCustomer,
+    rememberCustomerProfile,
+    updateOrderPaymentStatus,
+    markOrderAsUnpaid,
+    markOrderAsPaid,
+    updateOrderStatus,
+    cycleOrderStatus,
+    toggleOrderItemDone,
+    calcOrderTotal: (items) => calcOrderTotal(items, prices),
+  };
 
   return (
     <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>

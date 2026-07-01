@@ -1,125 +1,89 @@
-# Butcher Order System
+# Butcher Order Management System
 
-A production-minded full-stack order management system built for a real butcher shop workflow.
+A tablet-first order management application built for the daily workflow of a
+working family butcher shop.
 
-This project was created to replace paper/manual order tracking in a family butcher shop that handles high-volume phone orders, holiday rushes, future pickup orders, daily preparation totals, customer lookup, and order history.
+[Live application](https://butcher-order-system-fullstack.vercel.app)
 
-The application is designed for practical daily use on a tablet in the shop, with a simple interface for fast order entry and low-friction operations.
+## Why I built it
 
-## Highlights
+The shop previously relied on paper and manual coordination for phone orders,
+future pickups, customer details, preparation totals, and unpaid orders. This
+application brings those tasks into one focused Arabic-first interface designed
+for fast use during busy service hours.
 
-- Real business use case, not a demo-only CRUD app
-- Tablet-first React interface for fast order taking
-- Supabase authentication and cloud sync
-- Customer memory by name and phone number
-- Future order management with automatic rollover into today's orders
-- Daily preparation summaries for grill, kebab, and shawarma
-- History, daily archive, unpaid order tracking, and price calculation
-- AI-assisted voice order draft helper for Arabic speech input
+This is an actively developed product based on a real operational problem—not a
+tutorial or a demo-only CRUD application.
 
-## AI-Assisted Workflow
+## Features
 
-The app includes an experimental voice order draft assistant.
+- Create, edit, complete, and archive multi-item orders
+- Schedule future pickups and automatically promote due orders
+- Remember customers and find them by phone-number suffix
+- Calculate order totals from a configurable price list
+- Track preparation status at order and item level
+- Summarize daily grill, kebab, and shawarma quantities
+- Track completed, paid, and unpaid orders
+- Authenticate and synchronize data with Supabase
+- Continue locally when Supabase is not configured
+- Convert Arabic speech into a reviewable order draft
 
-The assistant helps the shop worker capture a phone order while speaking Arabic near the tablet. It listens in short chunks, combines the transcript, and tries to extract draft order details such as:
+The voice assistant never saves an order automatically. A shop worker must
+review and confirm every generated draft.
 
-- customer name
-- phone digits
-- item name
-- quantity in kilograms
-- pickup time
-- order notes
+## Technology
 
-The assistant is intentionally draft-only. It never saves an order automatically. The worker reviews and confirms the order manually before saving.
-
-This design keeps the workflow safe for real business use while demonstrating an agent-style AI feature: listening, extracting structured data, and preparing an action for human approval.
-
-## Tech Stack
-
-### Frontend
-
-- React
-- Vite
+- React 19 and Vite
 - React Router
-- Context API
-- CSS responsive/tablet UI
-- Browser Speech Recognition API for the free voice draft helper
+- Supabase Authentication and PostgreSQL
+- Row Level Security
+- Material UI date/time pickers
+- Browser Speech Recognition API
+- Node.js and Express health service
 
-### Backend
+## Architecture
 
-- Node.js
-- Express.js
+```mermaid
+flowchart LR
+    UI["React tablet UI"] --> State["Order domain and state layer"]
+    State --> Local["Browser localStorage"]
+    State --> Data["Supabase app_state"]
+    Auth["Supabase Auth"] --> Data
+    Data --> RLS["Per-user Row Level Security"]
+    Health["Express service"] --> Endpoint["Health endpoint"]
+```
 
-### Data & Auth
+The React application currently communicates directly with Supabase. The
+Express service is deliberately small and only exposes health endpoints; it is
+not part of the primary data path. See
+[Architecture](docs/ARCHITECTURE.md) for design decisions and known tradeoffs.
 
-- Supabase
-- Supabase Auth
-- Row Level Security policies
-- Local storage fallback
-- Rolling retention for recent operational data
-
-## Main Features
-
-### Order Management
-
-- Create, edit, delete, and complete shop orders
-- Add multiple items to one order before selecting pickup time
-- Track item-level done status
-- Add order notes and item notes
-- Automatic total price calculation
-
-### Customer Memory
-
-- Save customer name and phone number
-- Search customers using the last 3 phone digits
-- Auto-fill known customer details when there is a unique match
-- Protect against accidental refill while deleting phone digits
-
-### Future Orders
-
-- Schedule orders for future dates
-- Group future orders by day
-- Automatically move due future orders into today's order page
-- Edit an order between today and future without recreating it
-
-### Preparation Summaries
-
-- Daily prep totals for:
-  - grill
-  - kebab
-  - shawarma
-- Future prep totals by day
-- Small high-visibility panels for shop preparation planning
-
-### History & Archives
-
-- Completed order history
-- Daily revenue total
-- Unpaid customer tracking
-- Automatic daily archive rollover
-- Keeps the latest archived days for quick review
-
-### Cloud Sync & Security
-
-- Supabase login protects order/customer data
-- App state syncs to Supabase per authenticated user
-- Row Level Security limits users to their own data
-- Local fallback keeps the app usable when Supabase is not configured
-
-## Project Structure
+## Project structure
 
 ```text
 client/
-  React + Vite frontend
-
+  src/
+    components/          Shared UI components
+    context/             Application state orchestration
+    data/                Menu and preparation configuration
+    features/orders/     Order-domain utilities and tests
+    lib/                 External service adapters
+    pages/               Route-level screens
 server/
-  Node.js + Express backend
-
+  src/                   Optional Express health service
 supabase/
-  SQL setup for Supabase app_state table and RLS policies
+  app_state.sql          Table definition and RLS policies
+docs/
+  ARCHITECTURE.md        Data flow, decisions, and limitations
 ```
 
-## Run Locally
+## Run locally
+
+### Requirements
+
+- Node.js 20 or newer
+- npm
+- Optional: a Supabase project for authentication and cloud sync
 
 ### Frontend
 
@@ -129,62 +93,73 @@ npm install
 npm run dev
 ```
 
-Open:
+Open `http://localhost:5173`.
 
-```text
-http://localhost:5173
-```
+Without Supabase environment variables, the application runs in local-only
+mode. To enable authentication and cloud synchronization:
 
-### Backend
+1. Copy `client/.env.example` to `client/.env`.
+2. Add your Supabase URL and anonymous key.
+3. Apply `supabase/app_state.sql` in the Supabase SQL editor.
+
+Detailed instructions are in [Supabase setup](SUPABASE_SETUP.md).
+
+### Health service
 
 ```bash
 cd server
 npm install
-node src/index.js
+npm run dev
 ```
 
-Backend health endpoint:
+The health endpoint is available at `http://localhost:5000/api/health`.
 
-```text
-http://localhost:5000/api/health
+## Quality checks
+
+Run these commands from `client`:
+
+```bash
+npm run lint
+npm test
+npm run build
 ```
 
-## Supabase Setup
+Pull requests run the same checks through GitHub Actions.
 
-1. Create a Supabase project.
-2. Run the SQL in `supabase/app_state.sql`.
-3. Create an authenticated user in Supabase Auth.
-4. Add these environment variables to the frontend:
+## Security and privacy
 
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
+- Supabase Row Level Security restricts each user to their own state rows.
+- Only the public Supabase anonymous key belongs in the frontend.
+- Service-role keys, passwords, and `.env` files must never be committed.
+- Customer and order information may also exist in browser storage when local
+  fallback is enabled.
 
-For more detail, see `SUPABASE_SETUP.md`.
+Please report security concerns using [SECURITY.md](SECURITY.md).
 
-## What This Project Demonstrates
+## Current limitations
 
-- Building software from a real operational pain point
-- Designing UI for non-technical users under time pressure
-- React state management for a multi-page workflow
-- Supabase authentication, RLS, and cloud persistence
-- Practical data modeling for orders, history, future scheduling, and customers
-- Safe AI-assisted UX where the user remains in control
-- Iterative product development based on real shop feedback
+- Cloud data is stored as per-user JSON documents rather than normalized
+  relational order tables.
+- Concurrent edits from several devices are last-write-wins.
+- Local storage is not an offline synchronization queue.
+- Speech recognition availability and Arabic accuracy depend on the browser.
+- Automated coverage currently focuses on extracted domain utilities; broader
+  component and end-to-end coverage is planned.
 
-## Future Improvements
+## Roadmap
 
-- Better Arabic speech parsing with a dedicated speech-to-text API
-- WhatsApp/SMS integration for customer notifications
-- Dashboard analytics for busiest days and most ordered items
-- Role-based access for multiple workers
-- Offline-first sync queue
-- Automated tests for core order and archive logic
+- Normalize customers, orders, items, and payments in PostgreSQL
+- Add role-based access for multiple shop workers
+- Add conflict-safe offline synchronization
+- Expand unit, component, and end-to-end test coverage
+- Add operational analytics and customer notifications
+
+## Contributing
+
+Small, focused pull requests are welcome. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening one.
 
 ## Author
 
-Rayan Ibrahem  
-Computer Science Graduate - Full Stack Developer
-
-GitHub: https://github.com/rayanib
+Rayan Ibrahem — Computer Science graduate and full-stack developer
+[GitHub](https://github.com/rayanib)
